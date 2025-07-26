@@ -1,18 +1,26 @@
 package com.example.requisitionmanagementapi.controller;
 
 import com.example.requisitionmanagementapi.dto.*;
+import com.example.requisitionmanagementapi.entity.User;
 import com.example.requisitionmanagementapi.service.AuthService;
+import com.example.requisitionmanagementapi.service.UserService;
 import lombok.*;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
+
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
+
+    private final UserService userService;
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
@@ -49,7 +57,6 @@ public class AuthController {
         authService.resetPassword(request.getToken(), request.getNewPassword());
         return ResponseEntity.ok().build();
     }
-
 
 
 }

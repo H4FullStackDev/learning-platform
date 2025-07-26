@@ -26,8 +26,8 @@ public class MailService {
 
     public void sendPasswordResetEmail(String to, String token) {
         String subject = "Réinitialisation de votre mot de passe";
-        String link = "https://localhost:4200/reset-password?token=" + token;
-        String body = "Cliquez sur le lien pour réinitialiser votre mot de passe :\n" + link + "\n\nOu copiez ce code : " + token;
+        String link = "http://localhost:4200/auth/reset-password?token=" + token;
+        String body = "Cliquez sur le lien suivant pour réinitialiser votre mot de passe :\n" + link;
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);
         message.setSubject(subject);

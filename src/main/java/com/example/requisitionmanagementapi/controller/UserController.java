@@ -1,6 +1,7 @@
 package com.example.requisitionmanagementapi.controller;
 
 import com.example.requisitionmanagementapi.dto.CreateUserRequest;
+import com.example.requisitionmanagementapi.dto.ResetPasswordRequest;
 import com.example.requisitionmanagementapi.dto.UpdateUserRequest;
 import com.example.requisitionmanagementapi.dto.UserDTO;
 import com.example.requisitionmanagementapi.service.UserService;
@@ -9,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 import java.util.Set;
 
@@ -52,6 +54,13 @@ public class UserController {
     ) {
         userService.assignRoles(userId, roleIds);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/first-connection")
+    public ResponseEntity<?> resetPasswordAtFirstConnection(@RequestBody ResetPasswordRequest request, Principal principal) {
+        // Ici tu peux ajouter des vérifications de robustesse sur le nouveau mot de passe
+        userService.updatePassword(principal, request.getNewPassword());
+        return ResponseEntity.ok("Mot de passe changé avec succès.");
     }
 
 }

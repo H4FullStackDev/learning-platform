@@ -10,10 +10,12 @@ import com.example.requisitionmanagementapi.entity.Role;
 import com.example.requisitionmanagementapi.entity.User;
 import com.example.requisitionmanagementapi.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.Principal;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -85,6 +87,22 @@ public class UserService {
 
     private String generateTemporaryPassword() {
         return UUID.randomUUID().toString().substring(0, 10) + "@aA1";
+    }
+
+    public void updatePassword(Principal principal, String newPassword) {
+        String username = principal.getName(); // récupère le user connecté via JWT
+
+        User user = userDao.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
+
+//        if (!user.isMustChangePassword()) {
+//            throw new IllegalStateException("L'utilisateur n'est pas en première connexion.");
+//        }
+
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        user.setPassword(encodedPassword);
+        user.setMustChangePassword(false);
+        userDao.save(user);
     }
 }
 

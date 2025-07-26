@@ -1,14 +1,17 @@
 package com.example.requisitionmanagementapi.security;
 
 import com.example.requisitionmanagementapi.entity.User;
+import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Getter
 public class SecurityUserPrincipal implements UserDetails {
 
+    // accès direct si besoin
     private final User user;
 
     public SecurityUserPrincipal(User user) {
@@ -24,11 +27,13 @@ public class SecurityUserPrincipal implements UserDetails {
                 .collect(Collectors.toSet());
     }
 
+    public String getEmail() { return user.getEmail(); }
+
     @Override
     public String getPassword() { return user.getPassword(); }
 
     @Override
-    public String getUsername() { return user.getEmail(); } // login by email
+    public String getUsername() { return user.getUsername(); } // login by email
 
     @Override
     public boolean isAccountNonExpired() { return true; }
@@ -42,6 +47,5 @@ public class SecurityUserPrincipal implements UserDetails {
     @Override
     public boolean isEnabled() { return user.isEnabled(); }
 
-    public User getUser() { return user; } // accès direct si besoin
 }
 

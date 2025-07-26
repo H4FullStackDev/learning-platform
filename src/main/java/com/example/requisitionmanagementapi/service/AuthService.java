@@ -13,12 +13,15 @@ import com.example.requisitionmanagementapi.security.JwtUtil;
 import com.example.requisitionmanagementapi.security.SecurityUserPrincipal;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -95,7 +98,7 @@ public class AuthService {
         User user = userDao.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Vérifier l'ancien mot de passe
+        //Vérifier l'ancien mot de passe
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
             throw new RuntimeException("Current password is incorrect");
         }
@@ -140,6 +143,9 @@ public class AuthService {
         resetToken.setUsed(true);
         passwordResetTokenDao.save(resetToken);
     }
+
+
+
 
 
 }
