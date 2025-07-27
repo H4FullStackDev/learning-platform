@@ -6,9 +6,11 @@ import com.example.requisitionmanagementapi.dao.RefreshTokenDAO;
 import com.example.requisitionmanagementapi.dao.UserDAO;
 import com.example.requisitionmanagementapi.dto.AuthResponse;
 import com.example.requisitionmanagementapi.dto.ChangePasswordRequest;
+import com.example.requisitionmanagementapi.dto.UserDTO;
 import com.example.requisitionmanagementapi.entity.PasswordResetToken;
 import com.example.requisitionmanagementapi.entity.RefreshToken;
 import com.example.requisitionmanagementapi.entity.User;
+import com.example.requisitionmanagementapi.mapper.UserMapper;
 import com.example.requisitionmanagementapi.security.JwtUtil;
 import com.example.requisitionmanagementapi.security.SecurityUserPrincipal;
 import jakarta.transaction.Transactional;
@@ -36,13 +38,14 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final PasswordResetTokenDAO passwordResetTokenDao;
     private final MailService mailService;
+    private final UserMapper userMapper;
 
     @Transactional
     public AuthResponse login(String username, String password) {
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, password));
         User user = userDao.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
+        UserDTO userDTO = userMapper.toDTO(user);
         String accessToken = jwtUtil.generateJwtToken(new SecurityUserPrincipal(user));
         RefreshToken refreshToken = createRefreshToken(user);
 
@@ -50,6 +53,7 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken.getToken())
                 .mustChangePassword(user.isMustChangePassword())
+                .user(userDTO)
                 .build();
     }
 

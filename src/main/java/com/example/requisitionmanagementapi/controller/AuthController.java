@@ -1,17 +1,14 @@
 package com.example.requisitionmanagementapi.controller;
 
 import com.example.requisitionmanagementapi.dto.*;
-import com.example.requisitionmanagementapi.entity.User;
 import com.example.requisitionmanagementapi.service.AuthService;
 import com.example.requisitionmanagementapi.service.UserService;
 import lombok.*;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
+
 
 @RestController
 @RequestMapping("/auth")
