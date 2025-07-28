@@ -1,9 +1,6 @@
 package com.example.requisitionmanagementapi.controller;
 
-import com.example.requisitionmanagementapi.dto.CreateUserRequest;
-import com.example.requisitionmanagementapi.dto.ResetPasswordRequest;
-import com.example.requisitionmanagementapi.dto.UpdateUserRequest;
-import com.example.requisitionmanagementapi.dto.UserDTO;
+import com.example.requisitionmanagementapi.dto.*;
 import com.example.requisitionmanagementapi.service.UserService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -32,8 +29,8 @@ public class UserController {
     }
 
     @PostMapping
-    public UserDTO create(@RequestBody CreateUserRequest request) {
-        return userService.createUserByAdmin(request);
+    public UserDTO create(@RequestBody UserDTO dto) {
+        return userService.createUserByAdmin(dto);
     }
 
     @PutMapping("/{id}")
@@ -50,17 +47,20 @@ public class UserController {
     @PreAuthorize("hasRole('SUPERADMIN')")
     public ResponseEntity<?> assignRoles(
             @PathVariable Long userId,
-            @RequestBody Set<Long> roleIds
+            @RequestBody Long role
     ) {
-        userService.assignRoles(userId, roleIds);
+        userService.assignRoles(userId, role);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/first-connection")
-    public ResponseEntity<?> resetPasswordAtFirstConnection(@RequestBody ResetPasswordRequest request, Principal principal) {
-        // Ici tu peux ajouter des vérifications de robustesse sur le nouveau mot de passe
+    public void resetPasswordAtFirstConnection(@RequestBody ResetPasswordRequest request, Principal principal) {
         userService.updatePassword(principal, request.getNewPassword());
-        return ResponseEntity.ok("Mot de passe changé avec succès.");
+    }
+
+    @PutMapping("/{id}/password")
+    public void updateAdminPassword(@PathVariable Long id, @RequestBody FirstPasswordReset request) {
+        userService.updateAdminPassword(id, request.getNewPassword());
     }
 
 }

@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/permissions")
+@RequestMapping("/permissions")
 @PreAuthorize("hasRole('SUPERADMIN')")
 @RequiredArgsConstructor
 public class PermissionController {

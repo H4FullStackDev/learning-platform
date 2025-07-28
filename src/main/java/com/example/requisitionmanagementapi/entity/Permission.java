@@ -11,4 +11,6 @@ public class Permission {
 
     @Column(unique = true)
     private String name;
+    private String label;
+    private String category;
 }

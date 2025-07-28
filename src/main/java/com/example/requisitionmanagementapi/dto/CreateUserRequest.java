@@ -14,5 +14,5 @@ import java.util.Set;
 public class CreateUserRequest {
     private String username;
     private String email;
-    private Set<Long> roleIds;
+    private Long roleId;
 }

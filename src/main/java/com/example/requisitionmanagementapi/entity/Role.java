@@ -12,6 +12,7 @@ public class Role {
 
     @Column(unique = true)
     private String name;
+    private String description;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

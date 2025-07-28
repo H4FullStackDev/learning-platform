@@ -17,8 +17,6 @@ public class AuthController {
 
     private final AuthService authService;
 
-    private final UserService userService;
-
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request.getUsername(), request.getPassword());
@@ -50,10 +48,9 @@ public class AuthController {
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+    public void resetPassword(@RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request.getToken(), request.getNewPassword());
-        return ResponseEntity.ok().build();
-    }
 
+    }
 
 }

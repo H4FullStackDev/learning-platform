@@ -18,13 +18,15 @@ public class SecurityUserPrincipal implements UserDetails {
         this.user = user;
     }
 
-    @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // Flatten all permissions of all roles into one collection
-        return user.getRoles().stream()
-                .flatMap(role -> role.getPermissions().stream())
-                .map(permission -> (GrantedAuthority) () -> permission.getName())
-                .collect(Collectors.toSet());
+        // Si l'utilisateur a un rôle, retourne les permissions de ce rôle comme autorités
+        if (user.getRole() != null) {
+            return user.getRole().getPermissions().stream()
+                    .map(permission -> (GrantedAuthority) () -> permission.getName())
+                    .collect(Collectors.toSet());
+        }
+        // Sinon, retourne une collection vide
+        return Collections.emptySet();
     }
 
     public String getEmail() { return user.getEmail(); }

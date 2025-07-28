@@ -13,5 +13,6 @@ import java.util.Set;
 @AllArgsConstructor
 public class RoleRequest {
     private String name;
+    private String description;
     private Set<Long> permissionIds;
 }

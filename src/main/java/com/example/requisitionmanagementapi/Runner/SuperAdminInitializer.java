@@ -24,11 +24,10 @@ public class SuperAdminInitializer implements CommandLineRunner {
     public void run(String... args) throws Exception {
         // Vérifie si un superadmin existe déjà
         boolean exists = userDao.findAll().stream()
-                .anyMatch(user -> user.getRoles().stream().anyMatch(role -> role.getName().equals("SUPERADMIN")));
+                .anyMatch(user -> user.getRole() != null && "SUPERADMIN".equals(user.getRole().getName()));
         if (!exists) {
             Role superAdminRole = roleDao.findByName("SUPERADMIN")
                     .orElseGet(() -> roleDao.save(Role.builder().name("SUPERADMIN").build()));
-
             String tempPassword = "admin";
             User superAdmin = User.builder()
                     .email("superadmin@monsite.tg")
@@ -36,7 +35,7 @@ public class SuperAdminInitializer implements CommandLineRunner {
                     .password(passwordEncoder.encode(tempPassword))
                     .enabled(true)
                     .mustChangePassword(true)
-                    .roles(Set.of(superAdminRole))
+                    .role(superAdminRole)
                     .build();
             userDao.save(superAdmin);
 

@@ -39,26 +39,20 @@ public class UserService {
     }
 
     @Transactional
-    public UserDTO createUserByAdmin(CreateUserRequest request) {
-        String tempPassword = generateTemporaryPassword();
-
-        Set<Role> roles = request.getRoleIds().stream()
-                .map(rid -> roleDao.findById(rid).orElseThrow(() -> new RuntimeException("Role not found")))
-                .collect(Collectors.toSet());
-
+    public UserDTO createUserByAdmin(UserDTO dto) {
+        String tempPassword = dto.getUsername() + "2025";
         User user = User.builder()
-                .email(request.getEmail())
-                .username(request.getUsername())
+                .email(dto.getEmail())
+                .username(dto.getUsername())
                 .password(passwordEncoder.encode(tempPassword))
                 .enabled(true)
                 .mustChangePassword(true)
-                .roles(roles)
+                .role(dto.getRole())
+                .firstName(dto.getFirstName())
+                .lastName(dto.getLastName())
                 .build();
-
         userDao.save(user);
-
         mailService.sendNewAccountEmail(user.getEmail(), tempPassword);
-
         return userMapper.toDTO(user);
     }
 
@@ -67,6 +61,9 @@ public class UserService {
         User user = userDao.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setRole(request.getRole());
         userDao.save(user);
         return userMapper.toDTO(user);
     }
@@ -76,12 +73,11 @@ public class UserService {
     }
 
     @Transactional
-    public void assignRoles(Long userId, Set<Long> roleIds) {
+    public void assignRoles(Long userId, Long roleId) {
         User user = userDao.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
-        Set<Role> roles = roleIds.stream()
-                .map(rid -> roleDao.findById(rid).orElseThrow(() -> new RuntimeException("Role not found")))
-                .collect(Collectors.toSet());
-        user.setRoles(roles);
+        Role role = roleDao.findById(roleId)
+                .orElseThrow(() -> new RuntimeException("Role not found"));
+        user.setRole(role);
         userDao.save(user);
     }
 
@@ -90,18 +86,20 @@ public class UserService {
     }
 
     public void updatePassword(Principal principal, String newPassword) {
-        String username = principal.getName(); // récupère le user connecté via JWT
+        String username = principal.getName();
 
         User user = userDao.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
-
-//        if (!user.isMustChangePassword()) {
-//            throw new IllegalStateException("L'utilisateur n'est pas en première connexion.");
-//        }
-
         String encodedPassword = passwordEncoder.encode(newPassword);
         user.setPassword(encodedPassword);
         user.setMustChangePassword(false);
+        userDao.save(user);
+    }
+
+    public void updateAdminPassword(Long id, String newPassword) {
+        User user = userDao.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        user.setPassword(encodedPassword);
         userDao.save(user);
     }
 }
