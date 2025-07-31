@@ -9,7 +9,6 @@ import lombok.*;
 @Builder
 public class RequisitionArticleDTO {
     private Long id;
-    private int requestedQuantity;
-    private int deliveredQuantity;
+    private Integer quantity;
     private ArticleDTO article;
 }

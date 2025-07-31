@@ -1,10 +1,12 @@
 package com.example.requisitionmanagementapi.controller;
 
 import com.example.requisitionmanagementapi.dto.RequisitionHistoryDTO;
+import com.example.requisitionmanagementapi.enums.RequisitionStatus;
 import com.example.requisitionmanagementapi.service.RequisitionHistoryService;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 
 @AllArgsConstructor
@@ -19,18 +21,23 @@ public class RequisitionHistoryController {
         return service.getAll();
     }
 
-    @GetMapping("/{id}")
-    public RequisitionHistoryDTO getById(@PathVariable Long id) {
-        return service.getById(id);
+    /**
+     * Récupérer l'historique complet d'une réquisition
+     */
+    @GetMapping("/{requisitionId}")
+    public List<RequisitionHistoryDTO> getByRequisition(@PathVariable Long requisitionId) {
+        return service.getByRequisition(requisitionId);
     }
 
-    @PostMapping
-    public RequisitionHistoryDTO create(@RequestBody RequisitionHistoryDTO dto) {
-        return service.save(dto);
-    }
-
-    @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id) {
-        service.delete(id);
+    /**
+     * Ajouter un historique manuellement (action spécifique ou test)
+     */
+    @PostMapping("/{requisitionId}/add")
+    public RequisitionHistoryDTO addManualHistory(@PathVariable Long requisitionId,
+                                                  @RequestParam RequisitionStatus from,
+                                                  @RequestParam RequisitionStatus to,
+                                                  @RequestParam(required = false) String comment,
+                                                  Principal principal) {
+        return service.addManualHistory(requisitionId, from, to, comment, principal);
     }
 }

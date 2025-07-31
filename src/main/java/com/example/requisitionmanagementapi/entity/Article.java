@@ -1,4 +1,5 @@
 package com.example.requisitionmanagementapi.entity;
+import com.example.requisitionmanagementapi.enums.RequisitionType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -12,13 +13,12 @@ public class Article {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true)
     private String name;
-    private String description;
+    @Enumerated(EnumType.STRING)
+    private RequisitionType type;
     private int stockQuantity;
-
-    @ManyToOne
-    @JoinColumn(name = "type_id")
-    private TypeArticle type;
+    private int stockMin;
 
     @ManyToOne
     @JoinColumn(name = "supplier_id")

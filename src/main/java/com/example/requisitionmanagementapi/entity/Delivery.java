@@ -1,5 +1,6 @@
 package com.example.requisitionmanagementapi.entity;
 
+import com.example.requisitionmanagementapi.enums.DeliveryStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -11,10 +12,14 @@ public class Delivery {
     private Long id;
 
     private LocalDateTime deliveryDate;
-    private String deliveryStatus;
-    private String description;
-
-    @OneToOne
+    @Enumerated(EnumType.STRING)
+    private DeliveryStatus deliveryStatus;
+    private String deliveryNote;
+    @ManyToOne
+    private User deliveredBy;
+    @ManyToOne
+    private User recipient;
+    @ManyToOne
     @JoinColumn(name = "requisition_id")
     private Requisition requisition;
 }

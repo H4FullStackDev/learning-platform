@@ -1,5 +1,6 @@
 package com.example.requisitionmanagementapi.dto;
 
+import com.example.requisitionmanagementapi.enums.RequisitionType;
 import lombok.*;
 
 @Getter
@@ -8,11 +9,12 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class ArticleDTO {
+
     private Long id;
     private String name;
-    private String description;
     private int stockQuantity;
+    private int stockMin;
 
-    private TypeArticleDTO type;      // objet DTO, pas id !
-    private SupplierDTO supplier;     // objet DTO, pas id !
+    private RequisitionType type;
+    private SupplierDTO supplier;
 }

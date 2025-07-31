@@ -1,11 +1,16 @@
 package com.example.requisitionmanagementapi.service;
 
+import com.example.requisitionmanagementapi.dao.ArticleDAO;
 import com.example.requisitionmanagementapi.dao.SupplierDAO;
+import com.example.requisitionmanagementapi.dto.ArticleDTO;
 import com.example.requisitionmanagementapi.dto.SupplierDTO;
+import com.example.requisitionmanagementapi.entity.Article;
 import com.example.requisitionmanagementapi.entity.Supplier;
+import com.example.requisitionmanagementapi.mapper.ArticleMapper;
 import com.example.requisitionmanagementapi.mapper.SupplierMapper;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -15,6 +20,8 @@ public class SupplierService {
 
     private final SupplierDAO dao;
     private final SupplierMapper mapper;
+    private final ArticleDAO articleDAO;
+    private final ArticleMapper articleMapper;
 
 
     public List<SupplierDTO> getAll() {
@@ -32,5 +39,11 @@ public class SupplierService {
 
     public void delete(Long id) {
         dao.deleteById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ArticleDTO> getArticles(Long supplierId) {
+        List<Article> articles = articleDAO.findBySupplierId(supplierId);
+        return articleMapper.toDTOList(articles);
     }
 }

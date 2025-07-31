@@ -1,5 +1,6 @@
 package com.example.requisitionmanagementapi.dto;
 
+import com.example.requisitionmanagementapi.enums.DeliveryStatus;
 import lombok.*;
 import java.time.LocalDateTime;
 
@@ -7,7 +8,9 @@ import java.time.LocalDateTime;
 public class DeliveryDTO {
     private Long id;
     private LocalDateTime deliveryDate;
-    private String deliveryStatus;
-    private String description;
-    private RequisitionDTO requisition;
+    private DeliveryStatus deliveryStatus;
+    private String deliveryNote;
+
+    private UserDTO deliveredBy;
+    private UserDTO recipient;
 }

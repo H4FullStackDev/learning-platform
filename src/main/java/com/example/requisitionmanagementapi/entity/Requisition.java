@@ -1,31 +1,49 @@
 package com.example.requisitionmanagementapi.entity;
 
+import com.example.requisitionmanagementapi.enums.RequisitionStatus;
+import com.example.requisitionmanagementapi.enums.RequisitionType;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 @Entity
 public class Requisition {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private LocalDateTime creationDate;
-    private String status;
+    private String title;
+
+    @Enumerated(EnumType.STRING)
+    private RequisitionType type;
+
+    @Enumerated(EnumType.STRING)
+    private RequisitionStatus status;
+
     private String comment;
 
+    private LocalDateTime createdAt;
+
     @ManyToOne
-    @JoinColumn(name = "created_by_id")
     private User createdBy;
 
-    @OneToMany(mappedBy = "requisition", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<RequisitionArticle> articles;
+    @ManyToOne
+    private User validatedBy;
+
+    private LocalDateTime validationDate;
 
     @OneToMany(mappedBy = "requisition", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<RequisitionHistory> history;
+    private List<RequisitionArticle> articles = new ArrayList<>();
 
-    @OneToOne(mappedBy = "requisition", cascade = CascadeType.ALL)
-    private Delivery delivery;
+    @OneToMany(mappedBy = "requisition", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RequisitionHistory> histories = new ArrayList<>();
+
+    @OneToMany(mappedBy = "requisition")
+    private List<Delivery> deliveries = new ArrayList<>();
 }
+
 

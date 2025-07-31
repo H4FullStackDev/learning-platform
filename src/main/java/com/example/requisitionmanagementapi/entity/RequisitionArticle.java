@@ -9,8 +9,7 @@ public class RequisitionArticle {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private int requestedQuantity;
-    private int deliveredQuantity;
+    private Integer quantity;
 
     @ManyToOne
     @JoinColumn(name = "requisition_id")

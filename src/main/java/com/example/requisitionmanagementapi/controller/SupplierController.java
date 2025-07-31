@@ -1,5 +1,6 @@
 package com.example.requisitionmanagementapi.controller;
 
+import com.example.requisitionmanagementapi.dto.ArticleDTO;
 import com.example.requisitionmanagementapi.dto.SupplierDTO;
 import com.example.requisitionmanagementapi.service.SupplierService;
 import lombok.AllArgsConstructor;
@@ -32,5 +33,10 @@ public class SupplierController {
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
         service.delete(id);
+    }
+
+    @GetMapping("/{id}/articles")
+    public List<ArticleDTO> getArticles(@PathVariable Long id) {
+        return service.getArticles(id);
     }
 }
