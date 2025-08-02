@@ -1,5 +1,6 @@
 package com.example.requisitionmanagementapi.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.Set;
@@ -14,6 +15,7 @@ public class Role {
     private String name;
     private String description;
 
+    @JsonIgnore
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "role_permissions",

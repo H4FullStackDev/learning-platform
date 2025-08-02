@@ -1,6 +1,10 @@
 package com.example.requisitionmanagementapi.controller;
 
+import com.example.requisitionmanagementapi.dto.DeliveryCount;
 import com.example.requisitionmanagementapi.dto.DeliveryDTO;
+import com.example.requisitionmanagementapi.dto.DeliveryResponse;
+import com.example.requisitionmanagementapi.dto.RequisitionStatusCountDTO;
+import com.example.requisitionmanagementapi.entity.Delivery;
 import com.example.requisitionmanagementapi.enums.DeliveryStatus;
 import com.example.requisitionmanagementapi.service.DeliveryService;
 import lombok.AllArgsConstructor;
@@ -29,18 +33,23 @@ public class DeliveryController {
     /**
      * Mettre à jour le statut d'une livraison (PREPARATION, IN_TRANSIT, RECEIVED)
      */
-    @PutMapping("/{id}/status")
-    public DeliveryDTO updateStatus(@PathVariable Long id,
-                                    @RequestParam DeliveryStatus status,
+    @PutMapping("/{id}/validate")
+    public DeliveryDTO validateDelivery(@PathVariable Long id,
                                     Principal principal) {
-        return service.updateStatus(id, status, principal);
+        return service.validateDelivery(id, principal);
+    }
+
+    @PutMapping("/{id}/transit")
+    public DeliveryDTO transitDelivery(@PathVariable Long id,
+                                    Principal principal) {
+        return service.transitDelivery(id, principal);
     }
 
     /**
      * Obtenir toutes les livraisons
      */
     @GetMapping
-    public List<DeliveryDTO> getAll() {
+    public List<DeliveryResponse> getAll() {
         return service.getAll();
     }
 
@@ -61,5 +70,10 @@ public class DeliveryController {
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
         service.delete(id);
+    }
+
+    @GetMapping("/status-counts")
+    public DeliveryCount getRequisitionStatusCounts() {
+        return service.getDeliveryStatusCounts();
     }
 }

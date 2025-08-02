@@ -1,6 +1,7 @@
 package com.example.requisitionmanagementapi.controller;
 
 import com.example.requisitionmanagementapi.dto.RequisitionDTO;
+import com.example.requisitionmanagementapi.dto.RequisitionStatusCountDTO;
 import com.example.requisitionmanagementapi.dto.UserDTO;
 import com.example.requisitionmanagementapi.service.RequisitionService;
 import org.springframework.web.bind.annotation.*;
@@ -33,6 +34,11 @@ public class RequisitionController {
         return service.submitRequisition(id, principal);
     }
 
+    @PutMapping("/{id}/draft")
+    public RequisitionDTO draft(@PathVariable Long id, Principal principal) {
+        return service.draftRequisition(id, principal);
+    }
+
     /**
      * Valider une réquisition (OPJ ou Commissaire)
      */
@@ -49,13 +55,8 @@ public class RequisitionController {
         return service.rejectRequisition(id, comment, principal);
     }
 
-    @PutMapping("/{id}/start")
-    public RequisitionDTO cancel(@PathVariable Long id,  Principal principal) {
-        return service.startProcessing(id, principal);
-    }
-
     @PutMapping("/{id}/cancel")
-    public RequisitionDTO cancel(@PathVariable Long id, @RequestParam(required = false) String comment, Principal principal) {
+    public RequisitionDTO cancel(@PathVariable Long id, @RequestParam(required = true) String comment, Principal principal) {
         return service.cancelRequisition(id, principal, comment);
     }
 
@@ -65,6 +66,11 @@ public class RequisitionController {
     @GetMapping
     public List<RequisitionDTO> getAll() {
         return service.getAll();
+    }
+
+    @GetMapping("/status-counts")
+    public RequisitionStatusCountDTO getRequisitionStatusCounts() {
+        return service.getRequisitionStatusCounts();
     }
 
     /**

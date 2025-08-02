@@ -1,6 +1,7 @@
 package com.example.requisitionmanagementapi.entity;
 
 import com.example.requisitionmanagementapi.enums.DeliveryStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -19,7 +20,8 @@ public class Delivery {
     private User deliveredBy;
     @ManyToOne
     private User recipient;
-    @ManyToOne
+    @JsonIgnore
+    @OneToOne
     @JoinColumn(name = "requisition_id")
     private Requisition requisition;
 }

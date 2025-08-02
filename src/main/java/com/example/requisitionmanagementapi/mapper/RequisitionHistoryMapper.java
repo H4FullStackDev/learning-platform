@@ -6,7 +6,7 @@ import org.mapstruct.Mapper;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring", uses = {UserMapper.class})
+@Mapper(componentModel = "spring", uses = {UserMapper.class,RequisitionMapper.class})
 public interface RequisitionHistoryMapper {
     RequisitionHistoryDTO toDTO(RequisitionHistory entity);
     RequisitionHistory toEntity(RequisitionHistoryDTO dto);

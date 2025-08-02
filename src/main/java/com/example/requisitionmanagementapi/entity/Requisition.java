@@ -26,6 +26,8 @@ public class Requisition {
 
     private String comment;
 
+    private String action;
+
     private LocalDateTime createdAt;
 
     @ManyToOne
@@ -42,8 +44,8 @@ public class Requisition {
     @OneToMany(mappedBy = "requisition", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RequisitionHistory> histories = new ArrayList<>();
 
-    @OneToMany(mappedBy = "requisition")
-    private List<Delivery> deliveries = new ArrayList<>();
+    @OneToOne(mappedBy = "requisition")
+    private Delivery delivery;
 }
 
 

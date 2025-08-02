@@ -4,11 +4,13 @@ import com.example.requisitionmanagementapi.dao.ArticleDAO;
 import com.example.requisitionmanagementapi.dao.DeliveryDAO;
 import com.example.requisitionmanagementapi.dao.RequisitionDAO;
 import com.example.requisitionmanagementapi.dao.UserDAO;
-import com.example.requisitionmanagementapi.dto.DeliveryDTO;
+import com.example.requisitionmanagementapi.dto.*;
 import com.example.requisitionmanagementapi.entity.*;
 import com.example.requisitionmanagementapi.enums.DeliveryStatus;
 import com.example.requisitionmanagementapi.enums.RequisitionStatus;
 import com.example.requisitionmanagementapi.mapper.DeliveryMapper;
+import com.example.requisitionmanagementapi.mapper.RequisitionMapper;
+import com.example.requisitionmanagementapi.mapper.UserMapper;
 import lombok.AllArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @AllArgsConstructor
@@ -28,6 +31,9 @@ public class DeliveryService {
     private final UserDAO userDAO;
     private final RequisitionService requisitionService;
     private final ArticleDAO articleDAO;
+    private final DeliveryDAO deliveryDAO;
+    private final RequisitionMapper requisitionMapper;
+    private final UserMapper userMapper;
 
     /**
             * Créer une livraison pour une réquisition validée
@@ -35,53 +41,58 @@ public class DeliveryService {
     public DeliveryDTO createDelivery(Long requisitionId, DeliveryDTO dto, Principal principal) {
         Requisition requisition = requisitionDAO.findById(requisitionId)
                 .orElseThrow(() -> new RuntimeException("Réquisition introuvable"));
-
-        if (requisition.getStatus() != RequisitionStatus.VALIDATED) {
-            throw new IllegalStateException("La réquisition n'est pas validée");
-        }
-
         User deliveredBy = getCurrentUser(principal);
-
         Delivery delivery = mapper.toEntity(dto);
         delivery.setRequisition(requisition);
-        delivery.setDeliveryDate(LocalDateTime.now());
         delivery.setDeliveryStatus(DeliveryStatus.PREPARATION);
         delivery.setDeliveredBy(deliveredBy);
+        deliveryDAO.save(delivery);
+        requisitionService.startProcessing(requisitionId, principal);
 
         return mapper.toDTO(dao.save(delivery));
+    }
+
+     public DeliveryDTO transitDelivery(Long deliveryId, Principal principal) {
+        Delivery delivery = dao.findById(deliveryId)
+                .orElseThrow(() -> new RuntimeException("Livraison introuvable"));
+
+        User user = getCurrentUser(principal);
+        delivery.setDeliveryStatus(DeliveryStatus.IN_TRANSIT);
+        deliveryDAO.save(delivery);
+        return mapper.toDTO(delivery);
     }
 
     /**
      * Modifier le statut d'une livraison (DAL ou réception)
      */
-    public DeliveryDTO updateStatus(Long deliveryId, DeliveryStatus status, Principal principal) {
+    public DeliveryDTO validateDelivery(Long deliveryId, Principal principal) {
         Delivery delivery = dao.findById(deliveryId)
                 .orElseThrow(() -> new RuntimeException("Livraison introuvable"));
 
         User user = getCurrentUser(principal);
-        delivery.setDeliveryStatus(status);
 
-        if (status == DeliveryStatus.RECEIVED) {
+        if (delivery.getDeliveryStatus() != DeliveryStatus.RECEIVED) {
             delivery.setRecipient(user);
             Requisition requisition = delivery.getRequisition();
             if (requisition.getStatus() != RequisitionStatus.DELIVERED) {
                 for (RequisitionArticle ra : requisition.getArticles()) {
                     Article article = ra.getArticle();
                     int newStock = article.getStockQuantity() - ra.getQuantity();
-                    if (newStock < 0) {
-                        throw new IllegalArgumentException(
-                                "Stock insuffisant pour l'article : " + article.getName() +
-                                        " (disponible : " + article.getStockQuantity() + ", demandé : " + ra.getQuantity() + ")"
-                        );
-                    }
+//                    if (newStock < 0) {
+//                        throw new IllegalArgumentException(
+//                                "Stock insuffisant pour l'article : " + article.getName() +
+//                                        " (disponible : " + article.getStockQuantity() + ", demandé : " + ra.getQuantity() + ")"
+//                        );
+//                    }
                     article.setStockQuantity(newStock);
                     articleDAO.save(article);
                 }
-                requisition.setStatus(RequisitionStatus.DELIVERED);
-              requisitionService.addHistory(requisition, requisition.getStatus(), RequisitionStatus.DELIVERED, "Réquisition livrée", principal);
+                delivery.setDeliveryStatus(DeliveryStatus.RECEIVED);
+                requisitionService.deliveryRequisition(requisition.getId(), principal);
                 requisitionDAO.save(requisition);
             }
         }
+        deliveryDAO.save(delivery);
         return mapper.toDTO(delivery);
     }
 
@@ -89,9 +100,24 @@ public class DeliveryService {
      * Récupérer toutes les livraisons
      */
     @Transactional(readOnly = true)
-    public List<DeliveryDTO> getAll() {
-        return mapper.toDTOList(dao.findAll());
+    public List<DeliveryResponse> getAll() {
+        List<Delivery> deliveries = dao.findAllByOrderByDeliveryDateDesc(); // tri ici !
+        List<DeliveryResponse> result = new ArrayList<>();
+        for (Delivery delivery : deliveries) {
+            DeliveryResponse dto = new DeliveryResponse();
+            dto.setId(delivery.getId());
+            dto.setDeliveryStatus(delivery.getDeliveryStatus());
+            dto.setDeliveryDate(delivery.getDeliveryDate());
+            UserDTO recipient = userMapper.toDTO(delivery.getRecipient());
+            dto.setRecipient(recipient);
+            if (delivery.getRequisition() != null) {
+                dto.setRequisition(requisitionMapper.toDTOResponse(delivery.getRequisition()));
+            }
+            result.add(dto);
+        }
+        return result;
     }
+
 
     /**
      * Récupérer les livraisons liées à une réquisition
@@ -100,7 +126,6 @@ public class DeliveryService {
     public List<DeliveryDTO> getByRequisition(Long requisitionId) {
         return mapper.toDTOList(dao.findByRequisitionId(requisitionId));
     }
-
 
 
     /**
@@ -117,5 +142,13 @@ public class DeliveryService {
 
     public void delete(Long id) {
         dao.deleteById(id);
+    }
+
+    public DeliveryCount getDeliveryStatusCounts() {
+        return new DeliveryCount(
+                dao.countByDeliveryStatus(DeliveryStatus.PREPARATION),
+                dao.countByDeliveryStatus(DeliveryStatus.IN_TRANSIT),
+                dao.countByDeliveryStatus(DeliveryStatus.RECEIVED)
+        );
     }
 }
