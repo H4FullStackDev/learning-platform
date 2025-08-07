@@ -2,10 +2,13 @@ package com.example.requisitionmanagementapi.controller;
 
 import com.example.requisitionmanagementapi.dto.ArticleCount;
 import com.example.requisitionmanagementapi.dto.ArticleDTO;
+import com.example.requisitionmanagementapi.dto.StockEntryHistoryDTO;
+import com.example.requisitionmanagementapi.entity.StockEntryHistory;
 import com.example.requisitionmanagementapi.service.ArticleService;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -36,14 +39,20 @@ public class ArticleController {
     }
 
     @PutMapping("/{id}/add-stock")
-    public ArticleDTO addStock(@PathVariable Long id,  @RequestParam int quantity) {
-        return service.addStock(id, quantity);
+    public ArticleDTO addStock(@PathVariable Long id,  @RequestParam int quantity,@RequestParam double totalAmount, Principal principal) {
+        return service.addStock(id, quantity,totalAmount, principal);
+    }
+
+    @GetMapping("/{id}/history")
+    public List<StockEntryHistoryDTO> getHistory(@PathVariable Long id) {
+        return service.getHistory(id);
     }
 
     @GetMapping("/low-stock")
     public List<ArticleDTO> getLowStock() {
         return service.getLowStock();
     }
+
     @GetMapping("/large-stock")
     public List<ArticleDTO> getLargeStock() {
         return service.getLargeStock();

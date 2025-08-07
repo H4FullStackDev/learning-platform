@@ -1,10 +1,12 @@
 package com.example.requisitionmanagementapi.service;
 
+import com.example.requisitionmanagementapi.dao.RequisitionArticleDAO;
 import com.example.requisitionmanagementapi.dao.RequisitionDAO;
 import com.example.requisitionmanagementapi.dao.RequisitionHistoryDAO;
 import com.example.requisitionmanagementapi.dao.UserDAO;
 import com.example.requisitionmanagementapi.dto.RequisitionDTO;
 import com.example.requisitionmanagementapi.dto.RequisitionStatusCountDTO;
+import com.example.requisitionmanagementapi.dto.RequisitionStockRecapDTO;
 import com.example.requisitionmanagementapi.entity.*;
 import com.example.requisitionmanagementapi.enums.RequisitionStatus;
 import com.example.requisitionmanagementapi.mapper.RequisitionMapper;
@@ -15,7 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 @AllArgsConstructor
 @Service
@@ -24,6 +29,7 @@ public class RequisitionService {
     private final RequisitionMapper mapper;
     private final UserDAO userDAO;
     private final RequisitionDAO dao;
+    private final RequisitionArticleDAO requisitionArticleDAO;
     private final RequisitionHistoryDAO requisitionHistoryDAO;
 
 
@@ -42,7 +48,12 @@ public class RequisitionService {
      */
     public RequisitionDTO createRequisition(RequisitionDTO dto, Principal principal) {
         Requisition entity = mapper.toEntity(dto);
-        entity.setStatus(RequisitionStatus.DRAFT);
+        if (dto.getId()!=null) {
+            Requisition requisition = dao.findById(dto.getId()).get();
+            entity.setStatus(requisition.getStatus());
+        }else{
+            entity.setStatus(RequisitionStatus.DRAFT);
+        }
         entity.setCreatedAt(LocalDateTime.now());
         String username = principal.getName();
 
@@ -205,9 +216,23 @@ public class RequisitionService {
      * Récupérer toutes les réquisitions (filtrable plus tard)
      */
     @Transactional(readOnly = true)
-    public List<RequisitionDTO> getAll() {
-        return mapper.toDTOList(dao.findAll());
+    public List<RequisitionDTO> getAll(Principal principal) {
+        Optional<User> currentUser = userDAO.findByUsername(principal.getName());
+
+        Set<Department> userDepartments = currentUser.get().getDepartments();
+        List<Requisition> requisitions;
+
+        if (userDepartments == null || userDepartments.isEmpty()) {
+            requisitions = dao.findAll();
+        } else {
+            // Accès filtré : réquisitions dont le créateur a au moins un département commun
+            requisitions = dao.findByCreatedBy_DepartmentsIn(userDepartments);
+        }
+
+        return mapper.toDTOList(requisitions);
     }
+
+
 
     /**
      * Récupérer les détails d’une réquisition par son ID
@@ -220,7 +245,10 @@ public class RequisitionService {
         );
     }
 
-    public RequisitionStatusCountDTO getRequisitionStatusCounts() {
+    public RequisitionStatusCountDTO getRequisitionStatusCounts(Principal principal) {
+        User user = getCurrentUser(principal);
+        Set<Department> userDepartments = user.getDepartments();
+        if (user.getDepartments() == null || user.getDepartments().isEmpty()) {
         return new RequisitionStatusCountDTO(
                 dao.countByStatus(RequisitionStatus.DRAFT),
                 dao.countByStatus(RequisitionStatus.SUBMITTED),
@@ -230,7 +258,53 @@ public class RequisitionService {
                 dao.countByStatus(RequisitionStatus.DELIVERED),
                 dao.countByStatus(RequisitionStatus.CANCELLED)
         );
+
+    } else {
+        // Compte dans les départements de l'utilisateur
+        return new RequisitionStatusCountDTO(
+                dao.countByDepartmentAndStatus(userDepartments, RequisitionStatus.DRAFT),
+                dao.countByDepartmentAndStatus(userDepartments, RequisitionStatus.SUBMITTED),
+                dao.countByDepartmentAndStatus(userDepartments, RequisitionStatus.VALIDATED),
+                dao.countByDepartmentAndStatus(userDepartments, RequisitionStatus.REJECTED),
+                dao.countByDepartmentAndStatus(userDepartments, RequisitionStatus.IN_PROCESS),
+                dao.countByDepartmentAndStatus(userDepartments, RequisitionStatus.DELIVERED),
+                dao.countByDepartmentAndStatus(userDepartments, RequisitionStatus.CANCELLED)
+        );
     }
+    }
+
+    private User getCurrentUser(Principal principal) {
+    return userDAO.findByUsername(principal.getName())
+            .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
+    }
+
+    public List<RequisitionStockRecapDTO> getStockRecapForRequisition(Long requisitionId) {
+        // Récupère la réquisition et les RequisitionArticle associés
+        Requisition requisition = dao.findById(requisitionId)
+                .orElseThrow(() -> new RuntimeException("Réquisition introuvable"));
+
+        List<RequisitionArticle> requisitionArticles = requisitionArticleDAO.findByRequisition(requisition);
+        List<RequisitionStockRecapDTO> recapList = new ArrayList<>();
+
+        for (RequisitionArticle reqArt : requisitionArticles) {
+            Article article = reqArt.getArticle();
+            int stock = article.getStockQuantity(); // Assure-toi que ce champ existe et est à jour
+            int quantity = reqArt.getQuantity();
+            int remaining = stock - quantity;
+
+            RequisitionStockRecapDTO recap = new RequisitionStockRecapDTO();
+            recap.setArticleId(article.getId());
+            recap.setArticleName(article.getName());
+            recap.setCurrentStock(stock);
+            recap.setQuantityDemanded(quantity);
+            recap.setRemainingStock(remaining);
+
+            recapList.add(recap);
+        }
+
+        return recapList;
+    }
+
 
     /**
      * Ajouter un enregistrement d'historique à la réquisition

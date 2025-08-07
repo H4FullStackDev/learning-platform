@@ -2,6 +2,7 @@ package com.example.requisitionmanagementapi.controller;
 
 import com.example.requisitionmanagementapi.dto.RequisitionDTO;
 import com.example.requisitionmanagementapi.dto.RequisitionStatusCountDTO;
+import com.example.requisitionmanagementapi.dto.RequisitionStockRecapDTO;
 import com.example.requisitionmanagementapi.dto.UserDTO;
 import com.example.requisitionmanagementapi.service.RequisitionService;
 import org.springframework.web.bind.annotation.*;
@@ -64,14 +65,20 @@ public class RequisitionController {
      * Récupérer toutes les réquisitions
      */
     @GetMapping
-    public List<RequisitionDTO> getAll() {
-        return service.getAll();
+    public List<RequisitionDTO> getAll(Principal principal) {
+        return service.getAll(principal);
     }
 
     @GetMapping("/status-counts")
-    public RequisitionStatusCountDTO getRequisitionStatusCounts() {
-        return service.getRequisitionStatusCounts();
+    public RequisitionStatusCountDTO getRequisitionStatusCounts(Principal principal) {
+        return service.getRequisitionStatusCounts(principal);
     }
+
+    @GetMapping("/{id}/delivery-recap")
+    public List<RequisitionStockRecapDTO> getDeliveryRecap(@PathVariable Long id) {
+        return service.getStockRecapForRequisition(id);
+    }
+
 
     /**
      * Récupérer une réquisition par son ID

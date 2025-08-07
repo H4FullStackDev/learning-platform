@@ -50,6 +50,7 @@ public class UserService {
                 .role(dto.getRole())
                 .firstName(dto.getFirstName())
                 .lastName(dto.getLastName())
+                .departments(dto.getDepartments())
                 .build();
         userDao.save(user);
         mailService.sendNewAccountEmail(user.getEmail(), tempPassword);
@@ -64,6 +65,7 @@ public class UserService {
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
         user.setRole(request.getRole());
+        user.setDepartments(request.getDepartments());
         userDao.save(user);
         return userMapper.toDTO(user);
     }

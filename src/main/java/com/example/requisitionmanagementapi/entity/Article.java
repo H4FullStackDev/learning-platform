@@ -1,7 +1,10 @@
 package com.example.requisitionmanagementapi.entity;
 import com.example.requisitionmanagementapi.enums.RequisitionType;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -19,6 +22,10 @@ public class Article {
     private RequisitionType type;
     private int stockQuantity;
     private int stockMin;
+
+    @JsonIgnore
+    @OneToMany
+    private List<StockEntryHistory> stockEntryHistories;
 
     @ManyToOne
     @JoinColumn(name = "supplier_id")
