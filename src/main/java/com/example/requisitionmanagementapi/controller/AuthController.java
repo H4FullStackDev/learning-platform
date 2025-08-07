@@ -18,33 +18,28 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
-        AuthResponse response = authService.login(request.getUsername(), request.getPassword());
-        return ResponseEntity.ok(response);
+    public AuthResponse login(@RequestBody LoginRequest request) {
+        return  authService.login(request.getUsername(), request.getPassword());
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refresh(@RequestBody RefreshRequest request) {
-        AuthResponse response = authService.refresh(request.getRefreshToken());
-        return ResponseEntity.ok(response);
+    public AuthResponse refresh(@RequestBody RefreshRequest request) {
+        return authService.refresh(request.getRefreshToken());
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(@RequestBody RefreshRequest request) {
-        authService.logout(request.getRefreshToken());
-        return ResponseEntity.ok().build();
+    public void  logout(@RequestBody RefreshRequest request) {
+         authService.logout(request.getRefreshToken());
     }
 
     @PostMapping("/change-password")
-    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
+    public void changePassword(@RequestBody ChangePasswordRequest request) {
         authService.changePassword(request);
-        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+    public void forgotPassword(@RequestBody ForgotPasswordRequest request) {
         authService.initiatePasswordReset(request.getEmail());
-        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/reset-password")

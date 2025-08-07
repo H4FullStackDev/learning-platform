@@ -15,7 +15,6 @@ public class Role {
     private String name;
     private String description;
 
-    @JsonIgnore
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "role_permissions",
