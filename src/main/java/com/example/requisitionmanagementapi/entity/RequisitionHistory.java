@@ -19,7 +19,9 @@ public class RequisitionHistory {
     private RequisitionStatus statusAfter;
 
     private String action;
+
     private LocalDateTime actionDate;
+
     private String comment;
 
     @ManyToOne

@@ -26,8 +26,6 @@ public class Requisition {
 
     private String comment;
 
-    private String action;
-
     private LocalDateTime createdAt;
 
     @ManyToOne

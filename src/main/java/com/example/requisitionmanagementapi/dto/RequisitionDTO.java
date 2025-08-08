@@ -18,7 +18,6 @@ public class RequisitionDTO {
     private LocalDateTime createdAt;
     private RequisitionStatus status;
     private String comment;
-    private String action;
     private UserDTO createdBy;
     private UserDTO validatedBy;
     private LocalDateTime validationDate;

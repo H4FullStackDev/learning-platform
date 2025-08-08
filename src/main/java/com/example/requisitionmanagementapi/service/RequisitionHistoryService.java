@@ -62,7 +62,6 @@ public class RequisitionHistoryService {
         history.setComment(comment);
         history.setActionDate(LocalDateTime.now());
         history.setActionBy(actionBy);
-
         return mapper.toDTO(dao.save(history));
     }
 }

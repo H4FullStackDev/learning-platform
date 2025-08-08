@@ -11,6 +11,7 @@ public class RequisitionHistoryDTO {
     private RequisitionStatus statusAfter;
     private LocalDateTime actionDate;
     private String comment;
+    private String action;
     private UserDTO actionBy;
     private RequisitionDTO requisition;
 }

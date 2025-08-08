@@ -78,12 +78,6 @@ public class DeliveryService {
                 for (RequisitionArticle ra : requisition.getArticles()) {
                     Article article = ra.getArticle();
                     int newStock = article.getStockQuantity() - ra.getQuantity();
-//                    if (newStock < 0) {
-//                        throw new IllegalArgumentException(
-//                                "Stock insuffisant pour l'article : " + article.getName() +
-//                                        " (disponible : " + article.getStockQuantity() + ", demandé : " + ra.getQuantity() + ")"
-//                        );
-//                    }
                     article.setStockQuantity(newStock);
                     articleDAO.save(article);
                 }

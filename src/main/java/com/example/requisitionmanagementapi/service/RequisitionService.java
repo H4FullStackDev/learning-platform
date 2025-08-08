@@ -71,21 +71,14 @@ public class RequisitionService {
         Requisition requisition = dao.findById(id)
                 .orElseThrow(() -> new RuntimeException("Réquisition non trouvée"));
 
-//        if (requisition.getStatus() != RequisitionStatus.REJECTED) {
-//            throw new IllegalStateException("Seules les réquisitions rejeté peuvent être soumises");
-//        }
-
         String username = principal.getName();
         User validator = userDAO.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
 
-        // Décrémenter les stocks
-        addHistory(requisition, requisition.getStatus(), RequisitionStatus.DRAFT, "Réquisition mis en brouillons", principal);
-
+        addHistory(requisition, requisition.getStatus(), RequisitionStatus.DRAFT,"Brouiller", "Réquisition mis en brouillons", principal);
         requisition.setValidatedBy(validator);
         requisition.setValidationDate(LocalDateTime.now());
         requisition.setStatus(RequisitionStatus.DRAFT);
-        requisition.setAction("Brouiller");
         dao.save(requisition);
 
         return mapper.toDTO(requisition);
@@ -101,10 +94,8 @@ public class RequisitionService {
         if (requisition.getStatus() != RequisitionStatus.DRAFT && requisition.getStatus() != RequisitionStatus.REJECTED) {
             throw new IllegalStateException("Seules les réquisitions en brouillon ou rejetées peuvent être soumises");
         }
-
-        addHistory(requisition, requisition.getStatus(), RequisitionStatus.SUBMITTED, "Soumission de la réquisition", principal);
+        addHistory(requisition, requisition.getStatus(), RequisitionStatus.SUBMITTED,"Soumis", "Soumission de la réquisition", principal);
         requisition.setStatus(RequisitionStatus.SUBMITTED);
-        requisition.setAction("Soumis");
         dao.save(requisition);
         return mapper.toDTO(requisition);
     }
@@ -119,20 +110,15 @@ public class RequisitionService {
         if (requisition.getStatus() != RequisitionStatus.SUBMITTED) {
             throw new IllegalStateException("Seules les réquisitions soumises peuvent être validées");
         }
-
         String username = principal.getName();
         User validator = userDAO.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
 
-        // Décrémenter les stocks
-        addHistory(requisition, requisition.getStatus(), RequisitionStatus.VALIDATED, "Réquisition validée", principal);
-
+        addHistory(requisition, requisition.getStatus(), RequisitionStatus.VALIDATED,"Valider", "Réquisition validée", principal);
         requisition.setValidatedBy(validator);
         requisition.setValidationDate(LocalDateTime.now());
         requisition.setStatus(RequisitionStatus.VALIDATED);
-        requisition.setAction("Valider");
         dao.save(requisition);
-
         return mapper.toDTO(requisition);
     }
 
@@ -146,37 +132,30 @@ public class RequisitionService {
         if (requisition.getStatus() != RequisitionStatus.SUBMITTED) {
             throw new IllegalStateException("Seules les réquisitions soumises peuvent être rejetées");
         }
-
         String username = principal.getName();
         User validator = userDAO.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
 
-        addHistory(requisition, requisition.getStatus(), RequisitionStatus.REJECTED, comment != null ? comment : "Réquisition rejetée", principal);
-
+        addHistory(requisition, requisition.getStatus(), RequisitionStatus.REJECTED,  "Rejeter", comment , principal);
         requisition.setValidatedBy(validator);
         requisition.setComment(comment);
         requisition.setValidationDate(LocalDateTime.now());
         requisition.setStatus(RequisitionStatus.REJECTED);
-        requisition.setAction("Rejeter");
         dao.save(requisition);
-
         return mapper.toDTO(requisition);
     }
 
     public void startProcessing(Long id, Principal principal) {
         Requisition requisition = dao.findById(id)
                 .orElseThrow(() -> new RuntimeException("Réquisition non trouvée"));
-        addHistory(requisition, RequisitionStatus.VALIDATED, RequisitionStatus.IN_PROCESS, "Planification de la livraison", principal);
+        addHistory(requisition, RequisitionStatus.VALIDATED, RequisitionStatus.IN_PROCESS, "En cours", "Planification de la livraison", principal);
         requisition.setStatus(RequisitionStatus.IN_PROCESS);
-        requisition.setAction("En cours");
         mapper.toDTO(requisition);
     }
 
     public RequisitionDTO cancelRequisition(Long id, Principal principal, String comment) {
         Requisition requisition = dao.findById(id)
                 .orElseThrow(() -> new RuntimeException("Réquisition non trouvée"));
-
-        // On peut adapter les statuts selon tes besoins
         if (requisition.getStatus() == RequisitionStatus.IN_PROCESS ||
                 requisition.getStatus() == RequisitionStatus.DELIVERED ||
                 requisition.getStatus() == RequisitionStatus.CANCELLED) {
@@ -184,27 +163,21 @@ public class RequisitionService {
         }
 
 
-        addHistory(requisition, requisition.getStatus(), RequisitionStatus.CANCELLED, comment, principal);
+        addHistory(requisition, requisition.getStatus(), RequisitionStatus.CANCELLED, "Annuler", comment, principal);
         requisition.setStatus(RequisitionStatus.CANCELLED);
         requisition.setComment(comment);
-        requisition.setAction("Annuler");
         dao.save(requisition);
-
         return mapper.toDTO(requisition);
     }
 
     public void deliveryRequisition(Long id, Principal principal) {
         Requisition requisition = dao.findById(id)
                 .orElseThrow(() -> new RuntimeException("Réquisition non trouvée"));
-
-        // On peut adapter les statuts selon tes besoins
         if (requisition.getStatus() != RequisitionStatus.IN_PROCESS ) {
             throw new IllegalStateException("Cette réquisition ne peut plus être valider.");
         }
-
-        addHistory(requisition, requisition.getStatus(), RequisitionStatus.CANCELLED, "Réquisition Livré", principal);
+        addHistory(requisition, requisition.getStatus(), RequisitionStatus.DELIVERED, "Livrer", "Réquisition Livré", principal);
         requisition.setStatus(RequisitionStatus.DELIVERED);
-        requisition.setAction("Livrer");
         dao.save(requisition);
 
         mapper.toDTO(requisition);
@@ -218,14 +191,11 @@ public class RequisitionService {
     @Transactional(readOnly = true)
     public List<RequisitionDTO> getAll(Principal principal) {
         Optional<User> currentUser = userDAO.findByUsername(principal.getName());
-
         Set<Department> userDepartments = currentUser.get().getDepartments();
         List<Requisition> requisitions;
-
         if (userDepartments == null || userDepartments.isEmpty()) {
             requisitions = dao.findAll();
         } else {
-            // Accès filtré : réquisitions dont le créateur a au moins un département commun
             requisitions = dao.findByCreatedBy_DepartmentsIn(userDepartments);
         }
 
@@ -244,7 +214,6 @@ public class RequisitionService {
                         .orElseThrow(() -> new RuntimeException("Réquisition non trouvée"))
         );
     }
-
     public RequisitionStatusCountDTO getRequisitionStatusCounts(Principal principal) {
         User user = getCurrentUser(principal);
         Set<Department> userDepartments = user.getDepartments();
@@ -260,7 +229,6 @@ public class RequisitionService {
         );
 
     } else {
-        // Compte dans les départements de l'utilisateur
         return new RequisitionStatusCountDTO(
                 dao.countByDepartmentAndStatus(userDepartments, RequisitionStatus.DRAFT),
                 dao.countByDepartmentAndStatus(userDepartments, RequisitionStatus.SUBMITTED),
@@ -279,7 +247,6 @@ public class RequisitionService {
     }
 
     public List<RequisitionStockRecapDTO> getStockRecapForRequisition(Long requisitionId) {
-        // Récupère la réquisition et les RequisitionArticle associés
         Requisition requisition = dao.findById(requisitionId)
                 .orElseThrow(() -> new RuntimeException("Réquisition introuvable"));
 
@@ -288,10 +255,9 @@ public class RequisitionService {
 
         for (RequisitionArticle reqArt : requisitionArticles) {
             Article article = reqArt.getArticle();
-            int stock = article.getStockQuantity(); // Assure-toi que ce champ existe et est à jour
+            int stock = article.getStockQuantity();
             int quantity = reqArt.getQuantity();
             int remaining = stock - quantity;
-
             RequisitionStockRecapDTO recap = new RequisitionStockRecapDTO();
             recap.setArticleId(article.getId());
             recap.setArticleName(article.getName());
@@ -309,21 +275,18 @@ public class RequisitionService {
     /**
      * Ajouter un enregistrement d'historique à la réquisition
      */
-    public void addHistory(Requisition requisition, RequisitionStatus from, RequisitionStatus to, String comment, Principal principal) {
+    public void addHistory(Requisition requisition, RequisitionStatus from, RequisitionStatus to,String action, String comment, Principal principal) {
         RequisitionHistory history = new RequisitionHistory();
         history.setRequisition(requisition);
         history.setStatusBefore(from);
         history.setStatusAfter(to);
         history.setComment(comment);
         history.setActionDate(LocalDateTime.now());
-        // TODO : récupérer utilisateur courant via SecurityContext
         String username = principal.getName();
-
         User user = userDAO.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
-
         history.setActionBy(user);
-
+        history.setAction(action);
         requisition.getHistories().add(history);
         requisitionHistoryDAO.save(history);
     }
