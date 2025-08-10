@@ -9,8 +9,10 @@ import com.example.requisitionmanagementapi.dto.RequisitionStatusCountDTO;
 import com.example.requisitionmanagementapi.dto.RequisitionStockRecapDTO;
 import com.example.requisitionmanagementapi.entity.*;
 import com.example.requisitionmanagementapi.enums.RequisitionStatus;
+import com.example.requisitionmanagementapi.event.RequisitionEvent;
 import com.example.requisitionmanagementapi.mapper.RequisitionMapper;
 import lombok.AllArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,7 @@ public class RequisitionService {
     private final RequisitionDAO dao;
     private final RequisitionArticleDAO requisitionArticleDAO;
     private final RequisitionHistoryDAO requisitionHistoryDAO;
+    private final ApplicationEventPublisher events;
 
 
 
@@ -125,6 +128,7 @@ public class RequisitionService {
     /**
      * Rejeter une réquisition
      */
+    @Transactional
     public RequisitionDTO rejectRequisition(Long id,  String comment, Principal principal) {
         Requisition requisition = dao.findById(id)
                 .orElseThrow(() -> new RuntimeException("Réquisition non trouvée"));
@@ -142,8 +146,18 @@ public class RequisitionService {
         requisition.setValidationDate(LocalDateTime.now());
         requisition.setStatus(RequisitionStatus.REJECTED);
         dao.save(requisition);
+        var actorId = validator.getId();
+        var recipients = java.util.List.of(requisition.getCreatedBy().getId()); // ajoute d’autres destinataires si besoin
+        var meta = java.util.Map.<String,Object>of("reason", comment);
+
+        events.publishEvent(new RequisitionEvent(
+                this, requisition.getTitle(), RequisitionEvent.Type.CANCELED, actorId, recipients, meta
+        ));
         return mapper.toDTO(requisition);
+
+
     }
+
 
     public void startProcessing(Long id, Principal principal) {
         Requisition requisition = dao.findById(id)

@@ -31,11 +31,13 @@ public class SecurityUserPrincipal implements UserDetails {
 
     public String getEmail() { return user.getEmail(); }
 
+    public String getRole() { return user.getRole().getName(); }
+
     @Override
     public String getPassword() { return user.getPassword(); }
 
     @Override
-    public String getUsername() { return user.getUsername(); } // login by email
+    public String getUsername() { return user.getUsername(); } // login by username
 
     @Override
     public boolean isAccountNonExpired() { return true; }

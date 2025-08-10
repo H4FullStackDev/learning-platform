@@ -87,4 +87,9 @@ public class RequisitionController {
     public RequisitionDTO getById(@PathVariable Long id) {
         return service.getById(id);
     }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        service.delete(id);
+    }
 }

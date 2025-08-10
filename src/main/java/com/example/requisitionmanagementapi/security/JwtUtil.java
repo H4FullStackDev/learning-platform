@@ -4,6 +4,9 @@ import com.example.requisitionmanagementapi.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
@@ -28,6 +31,7 @@ public class JwtUtil {
                 .setSubject(principal.getUsername())         // ou getUsername() si email == username
                 .claim("email", principal.getEmail())
                 // Ajoute d'autres claims si besoin
+                .claim("role", principal.getRole())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS512)
@@ -53,4 +57,29 @@ public class JwtUtil {
             return false;
         }
     }
+
+    public Authentication toAuthentication(String token) {
+        try {
+            var claims = Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .setAllowedClockSkewSeconds(30) // optionnel
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+
+            String username = claims.getSubject();
+            String role = claims.get("role", String.class); // ex: "ADMIN", "DIRECTEUR"
+
+            var authorities = (role == null || role.isBlank())
+                    ? java.util.List.<org.springframework.security.core.GrantedAuthority>of()
+                    : java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority(role));
+
+            return new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    username, null, authorities
+            );
+        } catch (io.jsonwebtoken.JwtException e) {
+            throw new org.springframework.security.authentication.BadCredentialsException("Invalid JWT", e);
+        }
+    }
+
 }
