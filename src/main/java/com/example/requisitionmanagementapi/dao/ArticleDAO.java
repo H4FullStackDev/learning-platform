@@ -23,4 +23,10 @@ public interface ArticleDAO extends JpaRepository<Article, Long> {
     Optional<Article> findByNameIgnoreCase(String name);
     List<Article> findBySupplierId(Long supplierId);
 
+    List<Article> findAllByStockQuantityEquals(int stock);
+
+    // Stock faible (0 < stock ≤ minStock)
+    @Query("select a from Article a where a.stockQuantity > 0 and a.stockQuantity <= a.stockMin")
+    List<Article> findAllLowStock();
+
 }

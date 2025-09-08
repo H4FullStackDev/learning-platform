@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationAdapter;
+import org.springframework.web.util.HtmlUtils;
 
 import java.security.Principal;
 import java.util.List;
@@ -126,6 +127,26 @@ public class NotificationService {
     @Transactional
     public void deleteAll(Principal principal) {
         dao.deleteByUserId(currentUserId(principal));
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public NotificationDTO notifyLowStock(Long userId, Long articleId, String libelle, int stock, int minStock) {
+        final String safeName = HtmlUtils.htmlEscape(libelle);
+        final String title = "Stock faible";
+        final String body  = "L’article <strong>%s</strong> est bientôt en rupture (%d ≤ min %d)."
+                .formatted(safeName, stock, minStock);
+        final String link  = "/articles/%d".formatted(articleId);
+        return createAndSendToUser(userId, title, body, link, NotificationType.MESSAGE);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public NotificationDTO notifyOutOfStock(Long userId, Long articleId, String libelle) {
+        final String safeName = HtmlUtils.htmlEscape(libelle);
+        final String title = "Rupture de stock";
+        final String body  = "L’article <strong>%s</strong> est en <strong>rupture</strong> (stock = 0)."
+                .formatted(safeName);
+        final String link  = "/articles/%d".formatted(articleId);
+        return createAndSendToUser(userId, title, body, link, NotificationType.ALERT);
     }
 }
 

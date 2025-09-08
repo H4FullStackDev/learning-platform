@@ -22,10 +22,10 @@ public class RequisitionNotificationListener {
         String reason = ev.getMetadata() != null ? (String) ev.getMetadata().get("reason") : null;
         for (Long uid : ev.getRecipients()) {
             String body = "La réquisition <strong>" + ev.getRequisitionName() + "</strong> a été annulée";
-            String link = "/requisitions/";
+            String link = "requisition";
 
             notificationService.createAndSendToUser(
-                    uid, title, body, link, NotificationType.ALERT
+                    uid, title, body, link, NotificationType.MESSAGE
             );
         }
     }

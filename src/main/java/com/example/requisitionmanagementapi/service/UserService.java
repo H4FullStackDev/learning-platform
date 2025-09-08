@@ -101,6 +101,7 @@ public class UserService {
     public void updateAdminPassword(Long id, String newPassword) {
         User user = userDao.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
         String encodedPassword = passwordEncoder.encode(newPassword);
+        user.setMustChangePassword(true);
         user.setPassword(encodedPassword);
         userDao.save(user);
     }
