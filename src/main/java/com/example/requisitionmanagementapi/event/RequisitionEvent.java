@@ -5,7 +5,7 @@ import org.springframework.context.ApplicationEvent;
 
 @Getter
 public class RequisitionEvent extends ApplicationEvent {
-    public enum Type { CREATED, VALIDATED, REJECTED, CANCELED, OVERDUE }
+    public enum Type { CREATED, VALIDATED, REJECTED, CANCELED,DELIVERED,  IN_PROCESS }
 
     private final String requisitionName;
     private final Type type;

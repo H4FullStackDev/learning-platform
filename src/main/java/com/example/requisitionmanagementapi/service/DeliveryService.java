@@ -8,10 +8,12 @@ import com.example.requisitionmanagementapi.dto.*;
 import com.example.requisitionmanagementapi.entity.*;
 import com.example.requisitionmanagementapi.enums.DeliveryStatus;
 import com.example.requisitionmanagementapi.enums.RequisitionStatus;
+import com.example.requisitionmanagementapi.event.RequisitionEvent;
 import com.example.requisitionmanagementapi.mapper.DeliveryMapper;
 import com.example.requisitionmanagementapi.mapper.RequisitionMapper;
 import com.example.requisitionmanagementapi.mapper.UserMapper;
 import lombok.AllArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,10 +36,12 @@ public class DeliveryService {
     private final DeliveryDAO deliveryDAO;
     private final RequisitionMapper requisitionMapper;
     private final UserMapper userMapper;
+    private final ApplicationEventPublisher events;
 
     /**
             * Créer une livraison pour une réquisition validée
      */
+    @Transactional
     public DeliveryDTO createDelivery(Long requisitionId, DeliveryDTO dto, Principal principal) {
         Requisition requisition = requisitionDAO.findById(requisitionId)
                 .orElseThrow(() -> new RuntimeException("Réquisition introuvable"));
@@ -48,7 +52,13 @@ public class DeliveryService {
         delivery.setDeliveredBy(deliveredBy);
         deliveryDAO.save(delivery);
         requisitionService.startProcessing(requisitionId, principal);
+        var actorId = getCurrentUser(principal).getId();
+        var recipients = java.util.List.of(requisition.getValidatedBy().getId());
+        var meta = java.util.Map.<String,Object>of("deliveryAt", delivery.getDeliveryDate());
 
+        events.publishEvent(new RequisitionEvent(
+                this, requisition.getTitle(), RequisitionEvent.Type.IN_PROCESS, actorId, recipients, meta
+        ));
         return mapper.toDTO(dao.save(delivery));
     }
 
@@ -65,6 +75,7 @@ public class DeliveryService {
     /**
      * Modifier le statut d'une livraison (DAL ou réception)
      */
+    @Transactional
     public DeliveryDTO validateDelivery(Long deliveryId, Principal principal) {
         Delivery delivery = dao.findById(deliveryId)
                 .orElseThrow(() -> new RuntimeException("Livraison introuvable"));

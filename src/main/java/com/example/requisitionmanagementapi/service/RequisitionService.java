@@ -35,7 +35,7 @@ public class RequisitionService {
     private final RequisitionHistoryDAO requisitionHistoryDAO;
     private final ApplicationEventPublisher events;
 
-
+    public static final String ROLE_LOGISTIC = "LOGISTIQUE";
 
     public RequisitionDTO save(RequisitionDTO dto) {
         Requisition entity = mapper.toEntity(dto);
@@ -106,6 +106,7 @@ public class RequisitionService {
     /**
      * Valider une réquisition (OPJ ou commissaire)
      */
+    @Transactional
     public RequisitionDTO validateRequisition(Long id, Principal principal) {
         Requisition requisition = dao.findById(id)
                 .orElseThrow(() -> new RuntimeException("Réquisition non trouvée"));
@@ -113,15 +114,30 @@ public class RequisitionService {
         if (requisition.getStatus() != RequisitionStatus.SUBMITTED) {
             throw new IllegalStateException("Seules les réquisitions soumises peuvent être validées");
         }
-        String username = principal.getName();
-        User validator = userDAO.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
 
+        Long creatorId = requisition.getCreatedBy() != null ? requisition.getCreatedBy().getId() : null;
         addHistory(requisition, requisition.getStatus(), RequisitionStatus.VALIDATED,"Valider", "Réquisition validée", principal);
-        requisition.setValidatedBy(validator);
+        requisition.setValidatedBy(getCurrentUser(principal));
         requisition.setValidationDate(LocalDateTime.now());
         requisition.setStatus(RequisitionStatus.VALIDATED);
         dao.save(requisition);
+        var actorId = getCurrentUser(principal).getId();
+        List<Long> recipients =
+                java.util.stream.Stream.concat(
+                                java.util.stream.Stream.of(creatorId),
+                                userDAO.findAllByRole_Name(ROLE_LOGISTIC).stream()
+                                        .filter(User::isEnabled)
+                                        .map(User::getId)
+                        )
+                        .filter(java.util.Objects::nonNull)
+                        .distinct()
+                        .toList();
+
+        var meta = java.util.Map.<String,Object>of();
+
+        events.publishEvent(new RequisitionEvent(
+                this, requisition.getTitle(), RequisitionEvent.Type.VALIDATED, actorId, recipients, meta
+        ));
         return mapper.toDTO(requisition);
     }
 
@@ -136,26 +152,21 @@ public class RequisitionService {
         if (requisition.getStatus() != RequisitionStatus.SUBMITTED) {
             throw new IllegalStateException("Seules les réquisitions soumises peuvent être rejetées");
         }
-        String username = principal.getName();
-        User validator = userDAO.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
 
         addHistory(requisition, requisition.getStatus(), RequisitionStatus.REJECTED,  "Rejeter", comment , principal);
-        requisition.setValidatedBy(validator);
+        requisition.setValidatedBy(getCurrentUser(principal));
         requisition.setComment(comment);
         requisition.setValidationDate(LocalDateTime.now());
         requisition.setStatus(RequisitionStatus.REJECTED);
         dao.save(requisition);
-        var actorId = validator.getId();
-        var recipients = java.util.List.of(requisition.getCreatedBy().getId()); // ajoute d’autres destinataires si besoin
+        var actorId = getCurrentUser(principal).getId();
+        var recipients = java.util.List.of(requisition.getValidatedBy().getId());
         var meta = java.util.Map.<String,Object>of("reason", comment);
 
         events.publishEvent(new RequisitionEvent(
-                this, requisition.getTitle(), RequisitionEvent.Type.CANCELED, actorId, recipients, meta
+                this, requisition.getTitle(), RequisitionEvent.Type.REJECTED, actorId, recipients, meta
         ));
         return mapper.toDTO(requisition);
-
-
     }
 
 
@@ -164,9 +175,10 @@ public class RequisitionService {
                 .orElseThrow(() -> new RuntimeException("Réquisition non trouvée"));
         addHistory(requisition, RequisitionStatus.VALIDATED, RequisitionStatus.IN_PROCESS, "En cours", "Planification de la livraison", principal);
         requisition.setStatus(RequisitionStatus.IN_PROCESS);
-        mapper.toDTO(requisition);
+        mapper.toDTO(dao.save(requisition));
     }
 
+    @Transactional
     public RequisitionDTO cancelRequisition(Long id, Principal principal, String comment) {
         Requisition requisition = dao.findById(id)
                 .orElseThrow(() -> new RuntimeException("Réquisition non trouvée"));
@@ -176,11 +188,17 @@ public class RequisitionService {
             throw new IllegalStateException("Cette réquisition ne peut plus être annulée.");
         }
 
-
         addHistory(requisition, requisition.getStatus(), RequisitionStatus.CANCELLED, "Annuler", comment, principal);
         requisition.setStatus(RequisitionStatus.CANCELLED);
         requisition.setComment(comment);
         dao.save(requisition);
+        var actorId = getCurrentUser(principal).getId();
+        var recipients = java.util.List.of(requisition.getValidatedBy().getId(), requisition.getCreatedBy().getId());
+        var meta = java.util.Map.<String,Object>of("reason", comment);
+
+        events.publishEvent(new RequisitionEvent(
+                this, requisition.getTitle(), RequisitionEvent.Type.CANCELED, actorId, recipients, meta
+        ));
         return mapper.toDTO(requisition);
     }
 
@@ -193,6 +211,13 @@ public class RequisitionService {
         addHistory(requisition, requisition.getStatus(), RequisitionStatus.DELIVERED, "Livrer", "Réquisition Livré", principal);
         requisition.setStatus(RequisitionStatus.DELIVERED);
         dao.save(requisition);
+        var actorId = getCurrentUser(principal).getId();
+        var recipients = java.util.List.of(requisition.getValidatedBy().getId());
+        var meta = java.util.Map.<String,Object>of("reason", actorId);
+
+        events.publishEvent(new RequisitionEvent(
+                this, requisition.getTitle(), RequisitionEvent.Type.DELIVERED, actorId, recipients, meta
+        ));
 
         mapper.toDTO(requisition);
     }

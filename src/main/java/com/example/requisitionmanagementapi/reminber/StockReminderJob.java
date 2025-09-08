@@ -7,6 +7,7 @@ import com.example.requisitionmanagementapi.entity.Article;
 import com.example.requisitionmanagementapi.entity.User;
 import com.example.requisitionmanagementapi.enums.NotificationType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.annotation.Schedules;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class StockReminderJob {
@@ -21,17 +23,20 @@ public class StockReminderJob {
     private final ArticleDAO articleDAO;
     private final UserDAO userDAO;
     private final NotificationService notificationService;
+    public static final String ROLE_LOGISTIC = "LOGISTIQUE";
+
 
     // 08:00 et 21:30 (Africa/Lome)
     @Schedules({
-            @Scheduled(cron = "0 16 21 * * *",  zone = "Africa/Lome"),
-            @Scheduled(cron = "0 16 23 * * *", zone = "Africa/Lome")
+            @Scheduled(cron = "0 14 22 * * *",  zone = "Africa/Lome"),
+            @Scheduled(cron = "0 14 00 * * *", zone = "Africa/Lome")
     })
     @Transactional(readOnly = true)
     public void sendReminders() {
         // destinataires = tous les LOGISTIQUE
 
-        List<User> logisticiens = userDAO.findAllByRole_Name("LOGISTIQUE");
+        List<User> logisticiens = userDAO.findAllByRole_Name(ROLE_LOGISTIC);
+        logisticiens.add(userDAO.findAllByRole_Name("SUPERADMIN").get(0));
         if (logisticiens.isEmpty()) return;
 
         // 1) Rupture (ALERTE)
@@ -58,7 +63,7 @@ public class StockReminderJob {
     private void sendOutOfStock(Long userId, Long articleId, String libelle) {
         String title = "Rupture de stock";
         String body  = "L’article <strong>%s</strong> est en <strong>rupture</strong> (stock = 0).".formatted(html(libelle));
-        String link  = "/articles/%d".formatted(articleId);
+        String link  = "article";
         notificationService.createAndSendToUser(userId, title, body, link, NotificationType.ALERT);
     }
 
@@ -66,7 +71,7 @@ public class StockReminderJob {
         String title = "Stock faible";
         String body  = "L’article <strong>%s</strong> est bientôt en rupture (%d ≤ min %d)."
                 .formatted(html(libelle), stock, minStock);
-        String link  = "/articles/%d".formatted(articleId);
+        String link  = "article";
         notificationService.createAndSendToUser(userId, title, body, link, NotificationType.ALERT);
     }
 
