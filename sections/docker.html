@@ -1,0 +1,328 @@
+<article class="chapter" data-chapter="docker">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">04</span>
+      <span class="chapter-kicker">Module DevOps</span>
+    </div>
+    <h1 class="chapter-title">Conteneurisation (Docker)</h1>
+    <p class="chapter-lead">Empaqueter une application et toutes ses dépendances dans une image portable,
+      reproductible et légère. Dockerfile multi-stage, Docker Compose multi-services, et les optimisations
+      qui font la différence en production.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le problème résolu.</strong> Le conteneur met fin au «&nbsp;ça marche sur ma machine&nbsp;»&nbsp;:
+    l'application <em>et</em> son environnement (runtime, libs, config) voyagent ensemble dans une unité
+    isolée et identique du poste du développeur jusqu'à la production. C'est l'artifact immuable du chapitre
+    CI, prêt à être déployé.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Concepts clés</h2>
+  <ul>
+    <li><strong>Image</strong> — un modèle en lecture seule, empilé en <em>couches</em>, contenant tout le nécessaire pour lancer l'app. Immuable et versionnée par un tag.</li>
+    <li><strong>Conteneur</strong> — une <em>instance en cours d'exécution</em> d'une image, avec une fine couche inscriptible par-dessus. Éphémère et jetable.</li>
+    <li><strong>Layer (couche)</strong> — chaque instruction du Dockerfile crée une couche, mise en cache et partagée entre images. C'est la clé de l'optimisation.</li>
+    <li><strong>Registry (registre)</strong> — l'entrepôt d'images (Docker Hub, GHCR, ECR…). On y <code>push</code> une image buildée, on la <code>pull</code> pour la déployer.</li>
+  </ul>
+
+  <p>Une image se lit de bas en haut&nbsp;: chaque instruction empile une couche immuable, et le conteneur n'ajoute qu'une couche inscriptible au sommet.</p>
+
+  <div class="layers-viz">
+    <div class="layer-row layer-row--rw"><code>Conteneur</code><span class="layer-note">couche inscriptible (R/W)</span></div>
+    <div class="layer-row"><code>CMD ["node","dist/server.js"]</code><span class="layer-note">métadonnée</span></div>
+    <div class="layer-row"><code>COPY --from=builder /app/dist</code><span class="layer-note">couche artefact</span></div>
+    <div class="layer-row"><code>RUN npm ci --omit=dev</code><span class="layer-note">couche dépendances</span></div>
+    <div class="layer-row"><code>COPY package*.json ./</code><span class="layer-note">couche manifeste</span></div>
+    <div class="layer-row"><code>WORKDIR /app</code><span class="layer-note">couche config</span></div>
+    <div class="layer-row layer-row--base"><code>FROM node:20-alpine</code><span class="layer-note">image de base</span></div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Le Dockerfile en détail</h2>
+  <p>Chaque instruction pilote la construction de l'image. Les principales&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Instruction</th><th>Rôle</th></tr></thead>
+      <tbody>
+        <tr><td><code>FROM</code></td><td>Image de base ; démarre aussi une étape (nommable avec <code>AS</code>).</td></tr>
+        <tr><td><code>WORKDIR</code></td><td>Définit (et crée) le répertoire de travail des instructions suivantes.</td></tr>
+        <tr><td><code>COPY</code></td><td>Copie des fichiers du contexte de build vers l'image. (<code>ADD</code> fait plus, mais on préfère <code>COPY</code>.)</td></tr>
+        <tr><td><code>RUN</code></td><td>Exécute une commande <em>pendant le build</em> — crée une nouvelle couche.</td></tr>
+        <tr><td><code>ENV</code></td><td>Définit une variable d'environnement persistante dans l'image.</td></tr>
+        <tr><td><code>EXPOSE</code></td><td>Documente le port écouté (informatif ; n'ouvre rien tout seul).</td></tr>
+        <tr><td><code>USER</code></td><td>Fixe l'utilisateur qui exécutera les instructions/le process suivants.</td></tr>
+        <tr><td><code>CMD</code></td><td>Commande <em>par défaut</em> du conteneur — surchargeable au <code>docker run</code>.</td></tr>
+        <tr><td><code>ENTRYPOINT</code></td><td>Exécutable <em>fixe</em> du conteneur ; <code>CMD</code> lui fournit alors les arguments par défaut.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">CMD vs ENTRYPOINT</div>
+      <p>Règle simple&nbsp;: <strong>ENTRYPOINT</strong> = <em>quoi</em> exécuter (l'exécutable, non surchargé),
+      <strong>CMD</strong> = les <em>arguments par défaut</em> (facilement surchargés). Pour une app web,
+      un simple <code>CMD ["node","dist/server.js"]</code> suffit&nbsp;; ENTRYPOINT brille pour packager un
+      outil CLI.</p>
+    </div>
+  </div>
+
+  <h3>Multi-stage build — l'exemple complet</h3>
+  <p>
+    Le <strong>multi-stage build</strong> sépare l'environnement de <em>construction</em> (SDK, dev
+    dependencies, outils de build — volumineux) de l'image finale de <em>production</em> (le strict minimum
+    pour tourner). On ne copie dans l'image finale que l'artefact buildé.
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">Dockerfile</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-dockerfile"># syntax=docker/dockerfile:1
+
+# ===== Étape 1 : BUILD (lourde, jetable) =====
+FROM node:20-alpine AS builder        # image de base légère + alias d'étape "builder"
+WORKDIR /app                          # répertoire de travail (créé si absent)
+
+# Copier D'ABORD les manifestes -> la couche des dépendances est mise en cache
+COPY package.json package-lock.json ./
+RUN npm ci                            # install déterministe (dev deps incluses ici)
+
+# Puis le code source, et on build
+COPY . .
+RUN npm run build                     # produit /app/dist
+
+# ===== Étape 2 : RUNTIME (minimale, en prod) =====
+FROM node:20-alpine AS runtime        # on repart d'une base propre et minimale
+ENV NODE_ENV=production
+WORKDIR /app
+
+# N'installer QUE les dépendances de production
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev &amp;&amp; npm cache clean --force
+
+# Récupérer UNIQUEMENT l'artefact buildé depuis l'étape "builder"
+COPY --from=builder /app/dist ./dist
+
+# Sécurité : créer et utiliser un utilisateur non-root
+RUN addgroup -S app &amp;&amp; adduser -S app -G app
+USER app
+
+EXPOSE 3000                           # documente le port applicatif
+CMD ["node", "dist/server.js"]        # process par défaut du conteneur</code></pre>
+  </div>
+
+  <p>Résultat&nbsp;: l'image finale ne contient <strong>ni le code source, ni les outils de build, ni les dev dependencies</strong> — juste le runtime, les deps de prod et <code>dist/</code>.</p>
+
+  <div class="multistage">
+    <div class="ms-stage ms-stage--builder">
+      <div class="ms-stage__head">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        builder <span class="ms-stage__tag">≈ 1.1 GB</span>
+      </div>
+      <ul>
+        <li>SDK Node complet</li>
+        <li>dev dependencies</li>
+        <li>code source</li>
+        <li>outils de build → <code>dist/</code></li>
+      </ul>
+    </div>
+
+    <div class="ms-arrow">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      <code>COPY --from=builder</code>
+    </div>
+
+    <div class="ms-stage ms-stage--runtime">
+      <div class="ms-stage__head">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        runtime <span class="ms-stage__tag">≈ 180 MB</span>
+      </div>
+      <ul>
+        <li>base alpine minimale</li>
+        <li>deps de <strong>production</strong></li>
+        <li>artefact <code>dist/</code></li>
+        <li>utilisateur non-root</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="figure">
+    <div class="figure__title">Taille de l'image : mono-stage vs multi-stage</div>
+    <div class="sizebar">
+      <span class="sizebar__label">Mono-stage</span>
+      <div class="sizebar__track"><div class="sizebar__fill" style="width:100%;background:linear-gradient(90deg,#f59e0b,#f97316)"></div></div>
+      <span class="sizebar__val">≈ 1.1 GB</span>
+    </div>
+    <div class="sizebar">
+      <span class="sizebar__label">Multi-stage</span>
+      <div class="sizebar__track"><div class="sizebar__fill" style="width:16%;background:linear-gradient(90deg,#10b981,#059669)"></div></div>
+      <span class="sizebar__val">≈ 180 MB</span>
+    </div>
+    <div class="figure__caption">Une image ~6× plus légère : builds &amp; déploiements plus rapides, surface d'attaque réduite.</div>
+  </div>
+
+  <h3>Bonnes pratiques du Dockerfile</h3>
+  <ul>
+    <li><strong>Ordre des couches pour le cache</strong> — copier <code>package*.json</code> et installer les dépendances <em>avant</em> de copier le code. Tant que le lockfile ne change pas, Docker réutilise la couche des deps (l'étape la plus lente).</li>
+    <li><strong>Image de base légère</strong> — <code>alpine</code> (~5 MB) plutôt que la variante complète&nbsp;; <strong>distroless</strong> pour aller plus loin (ni shell, ni gestionnaire de paquets → surface d'attaque minimale).</li>
+    <li><strong>Utilisateur non-root</strong> — ne jamais tourner en <code>root</code> dans le conteneur (<code>USER app</code>).</li>
+    <li><strong>Une image mince</strong> — nettoyer les caches (<code>npm cache clean</code>), combiner les <code>RUN</code>, ne rien installer d'inutile.</li>
+  </ul>
+
+  <h3>.dockerignore</h3>
+  <p>Comme <code>.gitignore</code>, il exclut des fichiers du <em>contexte de build</em>&nbsp;: builds plus rapides, images plus propres, et surtout on évite de copier des secrets ou <code>node_modules</code>.</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">.dockerignore</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">node_modules       # réinstallées dans l'image, jamais copiées
+npm-debug.log
+.git
+.gitignore
+.env               # ne JAMAIS copier de secrets dans l'image
+dist               # rebuild propre à l'intérieur du conteneur
+coverage
+Dockerfile
+.dockerignore
+README.md</code></pre>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Docker Compose — orchestrer plusieurs services</h2>
+  <p>
+    Une vraie application, c'est rarement un seul conteneur. <strong>Docker Compose</strong> décrit, dans un
+    seul fichier YAML, un ensemble de services qui démarrent ensemble, communiquent sur un réseau interne et
+    persistent leurs données. Exemple&nbsp;: <strong>app</strong> Node + <strong>Postgres</strong> +
+    <strong>Redis</strong> + reverse proxy <strong>nginx</strong>.
+  </p>
+
+  <div class="arch">
+    <div class="arch__node arch__node--ext">🌐 Internet</div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>:80</div>
+    <div class="arch__node" style="--c:#10b981">nginx<small>proxy</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>:3000</div>
+    <div class="arch__node" style="--c:#6366f1">app<small>node</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__branch">
+      <div class="arch__node" style="--c:#8b5cf6">db<small>postgres :5432</small></div>
+      <div class="arch__node" style="--c:#ef4444">cache<small>redis :6379</small></div>
+    </div>
+  </div>
+  <p class="muted">Seul <code>nginx</code> est exposé à l'extérieur (port 80). Les autres services ne sont joignables que sur le réseau interne, par leur nom (<code>app</code>, <code>db</code>, <code>cache</code>) — le DNS intégré de Compose.</p>
+
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">docker-compose.yml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml"># Un réseau par défaut est créé automatiquement : les services
+# s'y trouvent et se joignent par leur nom (résolution DNS interne).
+services:
+
+  # ---------- Application ----------
+  app:
+    build: .                          # construit l'image depuis le Dockerfile local
+    environment:
+      NODE_ENV: production
+      # les services se contactent par leur nom : db, cache
+      DATABASE_URL: postgres://app:${DB_PASSWORD}@db:5432/app
+      REDIS_URL: redis://cache:6379
+    depends_on:
+      db:
+        condition: service_healthy    # attend que Postgres soit "healthy"
+      cache:
+        condition: service_started
+    expose: ["3000"]                  # visible seulement en interne (pas publié)
+    restart: unless-stopped           # relance auto sauf arrêt manuel
+
+  # ---------- Base de données ----------
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${DB_PASSWORD}   # injecté depuis le fichier .env
+      POSTGRES_DB: app
+    volumes:
+      - pgdata:/var/lib/postgresql/data   # persistance des données
+    healthcheck:                          # sonde de disponibilité
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ---------- Cache ----------
+  cache:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1"]  # snapshot toutes les 60s
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+
+  # ---------- Reverse proxy ----------
+  proxy:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"                        # SEUL service publié vers l'extérieur
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro   # config en lecture seule
+    depends_on: [ app ]
+    restart: unless-stopped
+
+# Volumes nommés : les données survivent au recréement des conteneurs
+volumes:
+  pgdata:
+  redisdata:</code></pre>
+  </div>
+
+  <div class="accordion">
+    <button class="accordion__trigger" type="button">Le reverse proxy nginx.conf (bonus)</button>
+    <div class="accordion__panel"><div class="accordion__panel-inner">
+      <div class="code-block">
+        <div class="code-block__head"><span class="lang">nginx.conf</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-nginx">server {
+    listen 80;
+
+    location / {
+        proxy_pass http://app:3000;         # "app" = nom du service Compose
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}</code></pre>
+      </div>
+      <p class="muted">On lance le tout avec <code>docker compose up -d --build</code>, et on suit les logs avec <code>docker compose logs -f app</code>.</p>
+    </div></div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Images de production : le mémo</div>
+      <ul>
+        <li><strong>Scanner les vulnérabilités</strong> — passer chaque image au crible avec <strong>Trivy</strong> (ou Grype) dans la CI, avant tout push. On casse le build si des CVE <em>HIGH/CRITICAL</em> sont détectées.</li>
+        <li><strong>Tagger explicitement — jamais <code>latest</code> en prod</strong> — <code>latest</code> est un pointeur mouvant et non reproductible. Utiliser le SHA du commit ou une version (<code>1.4.2</code>), pour savoir exactement ce qui tourne et pouvoir rollback.</li>
+        <li><strong>Registre privé</strong> — pousser vers un registre contrôlé (GHCR, ECR, GitLab Registry, Harbor) avec authentification, plutôt que de dépendre d'images publiques non maîtrisées.</li>
+        <li><strong>Images minimales</strong> — alpine/distroless + multi-stage + non-root = surface d'attaque réduite.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">bash</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash"># Scanner l'image avant de la pousser (échoue si CVE HIGH/CRITICAL)
+trivy image --severity HIGH,CRITICAL --exit-code 1 registre.exemple.com/app:$(git rev-parse --short HEAD)
+
+# Tagger avec le SHA du commit (reproductible) plutôt que "latest"
+docker build -t registre.exemple.com/app:$(git rev-parse --short HEAD) .
+docker push registre.exemple.com/app:$(git rev-parse --short HEAD)</code></pre>
+  </div>
+
+  <p class="muted">
+    L'image validée et scannée est prête. Au chapitre suivant, <strong>Kubernetes</strong> prend le relais
+    pour l'exécuter, la scaler et la maintenir en vie à grande échelle.
+  </p>
+
+</article>

@@ -1,0 +1,455 @@
+<article class="chapter" data-chapter="terraform">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">06</span>
+      <span class="chapter-kicker">Module DevOps</span>
+    </div>
+    <h1 class="chapter-title">Infrastructure as Code (Terraform)</h1>
+    <p class="chapter-lead">Décrire l'infrastructure comme du code : déclaratif, versionné, reproductible.
+      Concepts Terraform un par un, workflow complet, et un exemple concret de bout en bout sur
+      DigitalOcean (VPC, droplet, base managée, load balancer).</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>L'idée.</strong> Plutôt que de cliquer dans une console cloud (irreproductible, non tracé),
+    on décrit l'infrastructure voulue dans des fichiers texte versionnés dans Git. Un outil se charge de
+    créer, modifier ou détruire les ressources pour atteindre cet état. Résultat&nbsp;: une infra
+    <strong>reproductible</strong>, <strong>auditée</strong> et <strong>revue en Pull Request</strong>, exactement
+    comme du code applicatif.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Qu'est-ce que l'Infrastructure as Code&nbsp;?</h2>
+  <p>
+    L'IaC gère le provisioning de l'infrastructure via des fichiers de définition lisibles par la machine.
+    La distinction fondamentale est <strong>déclaratif vs impératif</strong>&nbsp;:
+  </p>
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card">
+          <h4><span class="pill pill--red">Impératif</span></h4>
+          <p>On décrit les <strong>étapes</strong> pour arriver au résultat («&nbsp;crée un serveur, puis
+          installe X, puis ouvre le port 80&nbsp;»). Fragile&nbsp;: rejouer le script sur un état différent peut
+          échouer ou dupliquer.</p>
+        </div>
+        <div class="spec-card">
+          <h4><span class="pill pill--green">Déclaratif (Terraform)</span></h4>
+          <p>On décrit l'<strong>état désiré</strong> («&nbsp;je veux 1 VPC, 1 droplet, 1 base&nbsp;»). L'outil
+          calcule le <em>diff</em> entre le réel et le désiré, et n'applique que ce qui manque. Idempotent par
+          nature.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul>
+    <li><strong>Reproductibilité</strong> — le même code recrée une infra identique en dev, staging et prod.</li>
+    <li><strong>Versioning</strong> — l'historique de l'infra vit dans Git&nbsp;: qui a changé quoi, quand, et pourquoi (via la PR).</li>
+    <li><strong>Revue &amp; sécurité</strong> — chaque changement passe par un <code>plan</code> revu avant d'être appliqué.</li>
+    <li><strong>Récupération</strong> — en cas de sinistre, on reprovisionne tout à partir du code.</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Les concepts Terraform</h2>
+
+  <!-- Providers -->
+  <h3>Providers</h3>
+  <p>Un <strong>provider</strong> est le plugin qui traduit le code Terraform en appels d'API vers une plateforme (DigitalOcean, AWS, Kubernetes…). On déclare ceux dont on a besoin, avec une contrainte de version&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">providers.tf</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-hcl">terraform {
+  required_version = ">= 1.6"
+  required_providers {
+    digitalocean = {
+      source  = "digitalocean/digitalocean"
+      version = "~> 2.40"          # accepte 2.40.x, refuse 3.0
+    }
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+# Configuration de chaque provider
+provider "digitalocean" {
+  token = var.do_token             # jamais en dur : via variable sensible
+}
+
+provider "aws" {
+  region = "eu-west-1"
+}</code></pre>
+  </div>
+
+  <!-- Resources -->
+  <h3>Resources</h3>
+  <p>La <strong>resource</strong> est la brique de base&nbsp;: elle représente un objet d'infrastructure. Syntaxe&nbsp;: <code>resource "&lt;type&gt;" "&lt;nom_local&gt;" { … }</code>. On référence une ressource ailleurs via <code>&lt;type&gt;.&lt;nom&gt;.&lt;attribut&gt;</code>.</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">exemple de resource</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-hcl">resource "digitalocean_droplet" "web" {
+  name   = "web-1"
+  image  = "ubuntu-24-04-x64"
+  size   = "s-1vcpu-1gb"
+  region = "fra1"
+}
+
+# Référence : digitalocean_droplet.web.ipv4_address</code></pre>
+  </div>
+
+  <!-- Variables & outputs -->
+  <h3>Variables &amp; outputs</h3>
+  <p>Les <strong>variables</strong> paramètrent le code (entrées)&nbsp;; les <strong>outputs</strong> exposent des valeurs calculées (sorties), utiles pour l'affichage ou pour connecter des modules.</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">variables.tf</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-hcl">variable "region" {
+  description = "Région de déploiement"
+  type        = string
+  default     = "fra1"
+}
+
+variable "do_token" {
+  description = "Token API DigitalOcean"
+  type        = string
+  sensitive   = true               # masqué dans les logs et le plan
+}</code></pre>
+  </div>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">outputs.tf</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-hcl">output "droplet_ip" {
+  description = "IP publique du droplet"
+  value       = digitalocean_droplet.web.ipv4_address
+}</code></pre>
+  </div>
+
+  <!-- State -->
+  <h3>State (terraform.tfstate)</h3>
+  <p>
+    Terraform garde une trace de tout ce qu'il gère dans un fichier de <strong>state</strong>
+    (<code>terraform.tfstate</code>)&nbsp;: la correspondance entre votre code et les ressources réelles du
+    cloud. C'est ce qui lui permet de calculer les <em>diffs</em>. Ce fichier contient des données
+    sensibles (souvent des secrets en clair) — il ne doit <strong>jamais</strong> être commité.
+  </p>
+  <p>
+    En équipe, on le stocke sur un <strong>backend distant</strong>, partagé et <strong>verrouillé</strong>
+    (state locking) pour éviter deux <code>apply</code> simultanés qui corrompraient l'infra. Exemple classique
+    AWS&nbsp;: bucket S3 (stockage) + table DynamoDB (verrou).
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">backend.tf</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-hcl">terraform {
+  backend "s3" {
+    bucket         = "mon-org-tfstate"
+    key            = "digitalocean/prod/terraform.tfstate"
+    region         = "eu-west-1"
+    dynamodb_table = "terraform-locks"   # verrou : un seul apply à la fois
+    encrypt        = true                # state chiffré at-rest
+  }
+}
+# Alternative clé en main : Terraform Cloud / HCP (state + lock + exécution gérés)</code></pre>
+  </div>
+
+  <!-- Modules -->
+  <h3>Modules</h3>
+  <p>Un <strong>module</strong> est un ensemble de fichiers <code>.tf</code> réutilisable et paramétrable — l'équivalent d'une fonction pour l'infra. On structure un projet en modules par domaine (réseau, app…) appelés depuis chaque environnement.</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">arborescence</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">infra/
+├── modules/
+│   ├── network/            # VPC, firewall
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   └── app/                # droplet + load balancer
+│       └── ...
+└── environments/
+    ├── dev/
+    │   ├── main.tf         # appelle les modules avec les valeurs "dev"
+    │   └── terraform.tfvars
+    └── prod/
+        ├── main.tf
+        └── terraform.tfvars</code></pre>
+  </div>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">environments/prod/main.tf (extrait)</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-hcl">module "network" {
+  source      = "../../modules/network"   # chemin (ou registry, ou git)
+  environment = "prod"
+  region      = var.region
+}
+
+module "app" {
+  source     = "../../modules/app"
+  vpc_id     = module.network.vpc_id       # sortie d'un module -> entrée d'un autre
+  region     = var.region
+}</code></pre>
+  </div>
+
+  <!-- Workspaces -->
+  <h3>Workspaces</h3>
+  <p>Les <strong>workspaces</strong> permettent de gérer plusieurs états (dev/staging/prod) avec <em>le même code</em>, chacun ayant son propre state isolé. On référence <code>terraform.workspace</code> pour nommer les ressources par environnement.</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">bash</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">terraform workspace new staging      # crée un environnement isolé
+terraform workspace select prod      # bascule dessus
+terraform workspace list             # * indique le workspace actif
+
+# Dans le code : name = "web-${terraform.workspace}"  ->  web-prod, web-staging...</code></pre>
+  </div>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Workspaces ou dossiers par environnement&nbsp;?</div>
+      <p>Les workspaces sont pratiques pour des environnements <em>quasi identiques</em>. Dès que les configs
+      divergent sérieusement (tailles, options, comptes cloud distincts), beaucoup d'équipes préfèrent un
+      <strong>dossier par environnement</strong> (comme l'arborescence ci-dessus)&nbsp;: plus explicite et moins
+      risqué qu'un mauvais <code>workspace select</code> avant un <code>apply</code> en prod.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Le workflow Terraform</h2>
+  <p>Le cycle de vie tient en quelques commandes. On <em>ne saute jamais</em> l'étape <code>plan</code> avant un <code>apply</code>.</p>
+
+  <div class="arch">
+    <div class="arch__node" style="--c:#6366f1">init<small>télécharge providers + backend</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#8b5cf6">plan<small>calcule le diff</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#10b981">apply<small>crée / met à jour</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node arch__node--ext" style="--c:#f59e0b">☁️ infra vivante</div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></div>
+    <div class="arch__node" style="--c:#ef4444">destroy<small>détruit tout</small></div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">bash</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">terraform init          # initialise le dossier : providers + backend
+terraform fmt           # formate le code (canonique)
+terraform validate      # vérifie la syntaxe et la cohérence
+terraform plan          # montre CE QUI VA changer -> à revoir absolument
+terraform apply         # applique après confirmation (ou -auto-approve en CI)
+terraform destroy       # détruit l'ensemble des ressources gérées</code></pre>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Exemple complet — une infra DigitalOcean</h2>
+  <p>
+    Objectif&nbsp;: provisionner un <strong>VPC</strong>, un <strong>droplet</strong> (VM), une base
+    <strong>PostgreSQL managée</strong> et un <strong>load balancer</strong>, le tout relié sur le réseau
+    privé. Voici les trois fichiers du module, commentés.
+  </p>
+
+  <div class="arch">
+    <div class="arch__node arch__node--ext">🌐 Internet</div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>:80</div>
+    <div class="arch__node" style="--c:#10b981">Load Balancer</div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#6366f1">Droplet<small>dans le VPC</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#8b5cf6">PostgreSQL<small>managée, VPC privé</small></div>
+  </div>
+
+  <h3>main.tf</h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">main.tf</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-hcl">terraform {
+  required_version = ">= 1.6"
+  required_providers {
+    digitalocean = {
+      source  = "digitalocean/digitalocean"
+      version = "~> 2.40"
+    }
+  }
+}
+
+provider "digitalocean" {
+  token = var.do_token
+}
+
+# --- Réseau privé isolé ---
+resource "digitalocean_vpc" "main" {
+  name     = "${var.environment}-vpc"
+  region   = var.region
+  ip_range = "10.10.0.0/16"
+}
+
+# --- Serveur applicatif (VM) ---
+resource "digitalocean_droplet" "web" {
+  name     = "${var.environment}-web"
+  image    = "ubuntu-24-04-x64"
+  size     = var.droplet_size
+  region   = var.region
+  vpc_uuid = digitalocean_vpc.main.id       # rattaché au VPC
+  ssh_keys = [var.ssh_key_fingerprint]      # accès SSH par clé publique
+  tags     = [var.environment, "web"]
+}
+
+# --- Base de données PostgreSQL managée ---
+resource "digitalocean_database_cluster" "postgres" {
+  name                 = "${var.environment}-pg"
+  engine               = "pg"
+  version              = "16"
+  size                 = var.db_size
+  region               = var.region
+  node_count           = 1
+  private_network_uuid = digitalocean_vpc.main.id   # accessible en privé uniquement
+}
+
+# --- Load balancer public devant le droplet ---
+resource "digitalocean_loadbalancer" "public" {
+  name     = "${var.environment}-lb"
+  region   = var.region
+  vpc_uuid = digitalocean_vpc.main.id
+
+  forwarding_rule {
+    entry_port      = 80          # port exposé à Internet
+    entry_protocol  = "http"
+    target_port     = 80          # port du droplet
+    target_protocol = "http"
+  }
+
+  healthcheck {
+    port     = 80
+    protocol = "http"
+    path     = "/healthz"         # le LB retire un droplet non sain
+  }
+
+  droplet_ids = [digitalocean_droplet.web.id]   # backends du LB
+}</code></pre>
+  </div>
+
+  <h3>variables.tf</h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">variables.tf</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-hcl">variable "do_token" {
+  description = "Token API DigitalOcean"
+  type        = string
+  sensitive   = true                 # ne s'affiche pas dans le plan/les logs
+}
+
+variable "environment" {
+  description = "Nom de l'environnement (dev/staging/prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "region" {
+  description = "Région DigitalOcean"
+  type        = string
+  default     = "fra1"
+}
+
+variable "droplet_size" {
+  description = "Gabarit du droplet"
+  type        = string
+  default     = "s-1vcpu-1gb"
+}
+
+variable "db_size" {
+  description = "Gabarit de la base managée"
+  type        = string
+  default     = "db-s-1vcpu-1gb"
+}
+
+variable "ssh_key_fingerprint" {
+  description = "Empreinte d'une clé SSH déjà enregistrée sur DigitalOcean"
+  type        = string
+}</code></pre>
+  </div>
+
+  <h3>outputs.tf</h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">outputs.tf</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-hcl">output "load_balancer_ip" {
+  description = "IP publique du load balancer (à pointer par le DNS)"
+  value       = digitalocean_loadbalancer.public.ip
+}
+
+output "droplet_ip" {
+  description = "IP publique du droplet"
+  value       = digitalocean_droplet.web.ipv4_address
+}
+
+output "database_uri" {
+  description = "URI de connexion PostgreSQL"
+  value       = digitalocean_database_cluster.postgres.uri
+  sensitive   = true                 # contient le mot de passe -> masqué
+}</code></pre>
+  </div>
+
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Injecter le token sans le committer</div>
+      <p>On ne met jamais le token dans le code. On l'expose par variable d'environnement&nbsp;:
+      <code>export TF_VAR_do_token="dop_v1_…"</code> — Terraform mappe automatiquement
+      <code>TF_VAR_&lt;nom&gt;</code> vers <code>var.&lt;nom&gt;</code>. Puis&nbsp;: <code>terraform plan</code> →
+      <code>terraform apply</code>.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Terraform vs Ansible vs Pulumi</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Critère</th><th>Terraform</th><th>Ansible</th><th>Pulumi</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Approche</td><td>Déclaratif, <em>provisioning</em></td><td>Impératif/procédural, <em>configuration</em></td><td>Déclaratif, provisioning</td></tr>
+        <tr><td>Langage</td><td>HCL (DSL dédié)</td><td>YAML (playbooks)</td><td>TypeScript, Python, Go…</td></tr>
+        <tr><td>État</td><td>State explicite (<code>tfstate</code>)</td><td>Sans état, idempotent</td><td>State (backend Pulumi/self)</td></tr>
+        <tr><td>Point fort</td><td>Créer/gérer l'infra cloud</td><td>Configurer des serveurs existants</td><td>Vrai langage : logique &amp; tests</td></tr>
+        <tr><td>Idéal pour</td><td>Infra multi-cloud reproductible</td><td>Config management, orchestration ad hoc</td><td>Équipes dev-centric, logique complexe</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Terraform et Ansible sont souvent <strong>complémentaires</strong>&nbsp;: Terraform crée les serveurs, Ansible les configure ensuite.</p>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">À ne jamais faire</div>
+      <p>Ne <strong>jamais committer</strong> le <code>terraform.tfstate</code> (il contient des secrets en clair)
+      ni les tokens/mots de passe. Un <code>.gitignore</code> minimal&nbsp;:</p>
+<pre><code class="language-bash">*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars          # sauf variables non sensibles versionnées volontairement
+override.tf
+crash.log</code></pre>
+    </div>
+  </div>
+
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo IaC</div>
+      <ul>
+        <li><strong><code>fmt</code> + <code>validate</code> en CI</strong> — un pipeline qui vérifie le format et la validité à chaque PR (plus <em>tflint</em> / <em>checkov</em> pour le lint &amp; la sécurité).</li>
+        <li><strong>Revue du <code>plan</code> avant <code>apply</code></strong> — publier la sortie de <code>terraform plan</code> dans la PR&nbsp;; on n'applique qu'après relecture humaine.</li>
+        <li><strong>State distant &amp; verrouillé</strong> — S3+DynamoDB ou Terraform Cloud&nbsp;: état partagé, chiffré, avec verrou pour empêcher les <code>apply</code> concurrents.</li>
+        <li><strong>Secrets hors du code</strong> — <code>sensitive = true</code>, variables via <code>TF_VAR_*</code> ou Vault, jamais en dur.</li>
+        <li><strong>Versions épinglées</strong> — contraindre les versions de Terraform et des providers pour des plans reproductibles.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    On sait maintenant provisionner l'infrastructure de façon déclarative. Le chapitre suivant —
+    <strong>GitOps &amp; CD</strong> — fait de Git la source de vérité qui pilote automatiquement ces
+    déploiements et cette infra.
+  </p>
+
+</article>

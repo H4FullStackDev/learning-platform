@@ -1,0 +1,378 @@
+<article class="chapter" data-chapter="ci">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">03</span>
+      <span class="chapter-kicker">Module DevOps</span>
+    </div>
+    <h1 class="chapter-title">Intégration Continue (CI)</h1>
+    <p class="chapter-lead">Automatiser la validation à chaque commit : lint, tests, build et scan de
+      sécurité s'exécutent tout seuls pour intégrer le code en continu, en confiance. Théorie, comparatif
+      d'outils, et deux pipelines réels commentés.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>L'idée en une phrase.</strong> L'intégration continue consiste à <strong>fusionner
+    fréquemment</strong> le travail de chacun dans une branche partagée, en faisant <strong>valider
+    automatiquement</strong> chaque changement par un pipeline. Objectif&nbsp;: détecter les régressions en
+    minutes, pas en semaines — c'est le prolongement direct du chapitre Git.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Concepts clés</h2>
+  <p>
+    Un <strong>pipeline</strong> est l'enchaînement automatisé d'étapes déclenché par un événement (push,
+    Pull Request, tag). Il se décompose en une hiérarchie simple qu'on retrouve, sous des noms légèrement
+    différents, dans tous les outils&nbsp;:
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Terme</th><th>Définition</th></tr></thead>
+      <tbody>
+        <tr><td>Pipeline</td><td>Le processus automatisé complet, déclenché par un événement (push, PR, tag, cron).</td></tr>
+        <tr><td>Stage (étape)</td><td>Groupe logique de jobs, ordonné : par ex. <code>build</code> → <code>test</code> → <code>deploy</code>.</td></tr>
+        <tr><td>Job</td><td>Unité de travail exécutée sur un runner, composée d'une suite de steps. Des jobs indépendants tournent en parallèle.</td></tr>
+        <tr><td>Step / Action</td><td>Une commande (ou une action réutilisable) au sein d'un job.</td></tr>
+        <tr><td>Runner / Executor</td><td>La machine — souvent un conteneur éphémère — qui exécute un job.</td></tr>
+        <tr><td>Artifact</td><td>Fichier produit par un job et conservé/partagé : binaire, <code>dist/</code>, rapport de couverture, image.</td></tr>
+        <tr><td>Cache</td><td>Données réutilisées d'une exécution à l'autre pour gagner du temps (dépendances <code>node_modules</code>, couches Docker…).</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Anatomie d'un pipeline</h3>
+  <p>Un pipeline CI typique enchaîne des stages, dont certains contiennent plusieurs jobs exécutés en parallèle&nbsp;:</p>
+
+  <div class="pipeline">
+    <div class="pipeline__track">
+      <div class="pipeline__stage" style="--st-color:#6366f1">
+        <div class="pipeline__stage-name">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>
+          Lint
+        </div>
+        <div class="pipeline__jobs"><span class="pipeline__job">eslint</span></div>
+      </div>
+
+      <div class="pipeline__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+
+      <div class="pipeline__stage" style="--st-color:#8b5cf6">
+        <div class="pipeline__stage-name">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Test
+        </div>
+        <div class="pipeline__jobs">
+          <span class="pipeline__job pipeline__job--par">test · node 18</span>
+          <span class="pipeline__job pipeline__job--par">test · node 20</span>
+        </div>
+      </div>
+
+      <div class="pipeline__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+
+      <div class="pipeline__stage" style="--st-color:#f59e0b">
+        <div class="pipeline__stage-name">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+          Build
+        </div>
+        <div class="pipeline__jobs"><span class="pipeline__job">build → dist/</span></div>
+      </div>
+
+      <div class="pipeline__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+
+      <div class="pipeline__stage" style="--st-color:#10b981">
+        <div class="pipeline__stage-name">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+          Sécurité
+        </div>
+        <div class="pipeline__jobs"><span class="pipeline__job">audit · trivy</span></div>
+      </div>
+    </div>
+    <div class="figure__caption">Le stage « Test » illustre la parallélisation : deux jobs (Node 18 &amp; 20) tournent simultanément.</div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>GitHub Actions vs GitLab CI vs Jenkins</h2>
+  <p>Les trois outils les plus répandus, comparés sur ce qui compte au quotidien&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Critère</th><th>GitHub Actions</th><th>GitLab CI</th><th>Jenkins</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Facilité de setup</td><td>Très simple — YAML dans le repo, runners gérés</td><td>Simple — YAML intégré à GitLab</td><td>Complexe — serveur à installer &amp; maintenir</td></tr>
+        <tr><td>Configuration</td><td><code>.github/workflows/*.yml</code></td><td><code>.gitlab-ci.yml</code></td><td><code>Jenkinsfile</code> (Groovy) ou UI</td></tr>
+        <tr><td>Hébergement</td><td>SaaS (runners GitHub) ou self-hosted</td><td>SaaS (GitLab.com) ou self-hosted</td><td>Self-hosted (vous gérez le serveur)</td></tr>
+        <tr><td>Écosystème</td><td>Marketplace d'<em>actions</em> très riche</td><td>Templates &amp; features DevSecOps natifs</td><td>~1800 plugins, qualité variable</td></tr>
+        <tr><td>Coût</td><td>Gratuit (open-source) + minutes puis à l'usage</td><td>Free tier + minutes ; self-hosted gratuit</td><td>Gratuit, mais coût d'infra &amp; maintenance</td></tr>
+        <tr><td>Maintenance</td><td><span class="pill pill--green">Faible</span></td><td><span class="pill pill--green">Faible</span></td><td><span class="pill pill--red">Élevée</span></td></tr>
+        <tr><td>Idéal pour</td><td>Projets sur GitHub, démarrage rapide</td><td>Équipes tout-en-un GitLab</td><td>Besoins très custom, on-premise, legacy</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Exemple complet — GitHub Actions</h2>
+  <p>
+    Un pipeline Node.js réaliste&nbsp;: <strong>lint</strong>, <strong>tests unitaires</strong> (sur deux
+    versions de Node en parallèle), <strong>scan de sécurité</strong>, puis <strong>build</strong> avec
+    upload d'artifact. Commenté ligne par ligne.
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">.github/workflows/ci.yml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">name: CI                                  # Nom affiché dans l'onglet « Actions »
+
+on:                                       # Événements qui déclenchent le pipeline
+  push:
+    branches: [ main ]                    # à chaque push sur main
+  pull_request:                           # et à chaque PR ciblant main
+    branches: [ main ]
+
+concurrency:                              # Évite d'exécuter deux runs pour rien
+  group: ci-${{ github.ref }}            # une file d'attente par branche
+  cancel-in-progress: true                # annule le run précédent si un nouveau arrive
+
+env:
+  NODE_VERSION: '20'                      # version Node centralisée (DRY)
+
+jobs:
+  # ---------- 1. LINT ----------
+  lint:
+    runs-on: ubuntu-latest                # runner éphémère hébergé par GitHub
+    steps:
+      - uses: actions/checkout@v4         # récupère le code du dépôt
+      - uses: actions/setup-node@v4       # installe Node...
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'                    # ...et met en cache ~/.npm automatiquement
+      - run: npm ci                       # install déterministe basé sur package-lock.json
+      - run: npm run lint                 # échoue le job si le lint échoue → fail fast
+
+  # ---------- 2. TESTS (parallèle du lint) ----------
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false                    # un échec Node 18 ne coupe pas Node 20
+      matrix:
+        node: [ '18', '20' ]              # 2 versions = 2 jobs lancés en parallèle
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test -- --coverage       # tests unitaires + rapport de couverture
+      - uses: actions/upload-artifact@v4  # publie la couverture comme artifact
+        with:
+          name: coverage-node-${{ matrix.node }}
+          path: coverage/
+          retention-days: 7
+
+  # ---------- 3. SÉCURITÉ (parallèle) ----------
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npm audit --audit-level=high # échoue si vulnérabilité de niveau >= high
+      - name: Scan du système de fichiers (Trivy)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          severity: HIGH,CRITICAL
+          exit-code: '1'                  # casse le job si une vulnérabilité est trouvée
+
+  # ---------- 4. BUILD (attend lint + test) ----------
+  build:
+    needs: [ lint, test ]                 # DAG : ne démarre qu'après le succès des deux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npm run build                # produit le dossier dist/
+      - uses: actions/upload-artifact@v4  # artifact réutilisé par le déploiement (CD)
+        with:
+          name: app-dist
+          path: dist/
+          retention-days: 7</code></pre>
+  </div>
+
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le graphe de dépendances (DAG)</div>
+      <p>Sans <code>needs</code>, tous les jobs démarrent en parallèle. <code>lint</code>, <code>test</code> et
+      <code>security</code> tournent donc <strong>en même temps</strong>&nbsp;; seul <code>build</code> attend
+      (<code>needs: [lint, test]</code>). C'est ce graphe qui rend le pipeline rapide sans sacrifier l'ordre logique.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Le même pipeline en GitLab CI</h2>
+  <p>Équivalent fonctionnel en <code>.gitlab-ci.yml</code> — noter la config de cache et le <code>needs:</code> qui transforme les stages en DAG&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">.gitlab-ci.yml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">stages: [ lint, test, security, build ]   # ordre par défaut des étapes
+
+variables:
+  FF_USE_FASTZIP: "true"                  # zip plus rapide pour cache & artifacts
+
+default:
+  image: node:20-alpine                   # image par défaut de tous les jobs
+  cache:                                   # cache partagé, invalidé si le lockfile change
+    key:
+      files: [ package-lock.json ]
+    paths: [ .npm/ ]
+  before_script:
+    - npm ci --cache .npm --prefer-offline # réutilise le cache local
+
+lint:
+  stage: lint
+  script:
+    - npm run lint
+
+test:
+  stage: test
+  parallel:                               # matrice = jobs parallèles
+    matrix:
+      - NODE_TAG: [ "18-alpine", "20-alpine" ]
+  image: "node:$NODE_TAG"
+  script:
+    - npm test -- --coverage
+  coverage: '/All files[^|]*\|[^|]*\s+([\d.]+)/'  # extrait le % de couverture
+  artifacts:
+    paths: [ coverage/ ]
+    expire_in: 1 week
+
+security:
+  stage: security
+  script:
+    - npm audit --audit-level=high
+  # Alternative « clé en main » : les templates SAST intégrés à GitLab
+  # include:
+  #   - template: Security/SAST.gitlab-ci.yml
+
+build:
+  stage: build
+  needs: [ lint, test ]                   # DAG : démarre dès que lint + test sont verts
+  script:
+    - npm run build
+  artifacts:
+    paths: [ dist/ ]                       # artifact récupérable par le job de déploiement
+    expire_in: 1 week</code></pre>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Cache &amp; parallélisation : accélérer le pipeline</h2>
+  <p>
+    Deux leviers font l'essentiel de la vitesse. Le <strong>cache</strong> évite de retélécharger/recompiler
+    ce qui n'a pas changé (dépendances, couches Docker). La <strong>parallélisation</strong> exécute
+    simultanément les jobs qui ne dépendent pas les uns des autres.
+  </p>
+
+  <h3>Cache</h3>
+  <ul>
+    <li><strong>Dépendances</strong> — <code>cache: 'npm'</code> (setup-node) ou une clé basée sur le lockfile&nbsp;: on ne réinstalle que si <code>package-lock.json</code> change.</li>
+    <li><strong>Bonne clé de cache</strong> — dérivée du <em>hash</em> du fichier de verrouillage, pour une invalidation automatique et fiable.</li>
+    <li><strong>Couches Docker</strong> — le cache de build (BuildKit / <code>cache-from</code>) réutilise les couches inchangées (voir le chapitre Docker).</li>
+  </ul>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">cache explicite — GitHub Actions</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml"># Cache manuel (quand setup-node ne suffit pas, ex. build compilé)
+- uses: actions/cache@v4
+  with:
+    path: |
+      ~/.npm
+      .next/cache
+    key: ${{ runner.os }}-build-${{ hashFiles('**/package-lock.json') }}
+    restore-keys: |
+      ${{ runner.os }}-build-</code></pre>
+  </div>
+
+  <h3>Parallélisation</h3>
+  <p>
+    En exécutant <code>lint</code>, <code>test</code> et <code>security</code> ensemble plutôt qu'à la suite,
+    on passe d'un temps <em>cumulé</em> à un temps <em>maximal</em>. Sur notre exemple&nbsp;:
+  </p>
+
+  <div class="gantt">
+    <div class="gantt__row">
+      <span class="gantt__name">lint</span>
+      <div class="gantt__track"><div class="gantt__bar" style="left:0%;width:20%;background:#6366f1">2 min</div></div>
+    </div>
+    <div class="gantt__row">
+      <span class="gantt__name">test</span>
+      <div class="gantt__track"><div class="gantt__bar" style="left:0%;width:50%;background:#8b5cf6">5 min</div></div>
+    </div>
+    <div class="gantt__row">
+      <span class="gantt__name">security</span>
+      <div class="gantt__track"><div class="gantt__bar" style="left:0%;width:30%;background:#f59e0b">3 min</div></div>
+    </div>
+    <div class="gantt__row">
+      <span class="gantt__name">build</span>
+      <div class="gantt__track"><div class="gantt__bar" style="left:50%;width:40%;background:#10b981">4 min</div></div>
+    </div>
+    <div class="gantt__axis">
+      <span></span>
+      <div class="gantt__axis-inner"><span>0</span><span>5 min</span><span>10 min</span></div>
+    </div>
+  </div>
+  <p class="gantt__total">
+    Séquentiel&nbsp;: 2 + 5 + 3 + 4 = <b>14 min</b> &nbsp;·&nbsp; Parallèle (build après test)&nbsp;: <b>≈ 9 min</b>
+    — soit <b>~35 % plus rapide</b>, sans changer une seule ligne de test.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo CI</div>
+      <ul>
+        <li><strong>Fail fast</strong> — placer les vérifications les plus rapides (lint, format) en premier, pour couper immédiatement en cas d'erreur évidente.</li>
+        <li><strong>Pipelines rapides (&lt; 10 min)</strong> — au-delà, les développeurs contournent la CI. Cache + parallélisation + tests ciblés.</li>
+        <li><strong>Séparer build / test / deploy</strong> — des stages distincts&nbsp;: on <em>build une fois</em>, on teste l'artifact, puis on le déploie (jamais rebuild par environnement).</li>
+        <li><strong>Un artifact immuable</strong> — le même binaire/image traverse tous les environnements (dev → staging → prod).</li>
+        <li><strong>Rendre la CI déterministe</strong> — <code>npm ci</code> (pas <code>npm install</code>), versions épinglées, actions taguées.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Gestion des secrets : ne jamais commiter de secret</div>
+      <p>Un token, une clé API ou un mot de passe <strong>ne doit jamais</strong> figurer dans le code ou un
+      fichier YAML. On les stocke dans le <strong>coffre de secrets du CI</strong> (GitHub&nbsp;: <em>Encrypted
+      secrets</em>&nbsp;; GitLab&nbsp;: <em>CI/CD variables masquées &amp; protégées</em>) et on les injecte à
+      l'exécution&nbsp;:</p>
+<pre><code class="language-yaml"># On référence le secret, on n'écrit jamais sa valeur
+- run: ./deploy.sh
+  env:
+    API_TOKEN: ${{ secrets.API_TOKEN }}   # injecté et masqué dans les logs
+
+# Encore mieux pour le cloud : OIDC, aucun secret de longue durée à stocker
+permissions:
+  id-token: write                         # GitHub échange un jeton court avec AWS/GCP
+</code></pre>
+      <p style="margin-top:10px">Complément indispensable&nbsp;: un scan de secrets (<em>gitleaks</em>, <em>trufflehog</em>)
+      dans le pipeline pour rattraper une fuite accidentelle avant qu'elle n'atteigne <code>main</code>.</p>
+    </div>
+  </div>
+
+  <p class="muted">
+    On a désormais un artifact validé et immuable en sortie de CI. Les chapitres suivants s'en emparent&nbsp;:
+    <strong>Docker</strong> pour l'empaqueter, puis <strong>CD / GitOps</strong> pour le déployer automatiquement.
+  </p>
+
+</article>

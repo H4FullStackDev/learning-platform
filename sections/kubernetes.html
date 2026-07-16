@@ -1,0 +1,438 @@
+<article class="chapter" data-chapter="kubernetes">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">05</span>
+      <span class="chapter-kicker">Module DevOps</span>
+    </div>
+    <h1 class="chapter-title">Orchestration (Kubernetes)</h1>
+    <p class="chapter-lead">Faire tourner des conteneurs à grande échelle : les planifier, les scaler,
+      les guérir automatiquement et les exposer. Architecture, objets fondamentaux avec manifests réels,
+      Helm, et les bonnes pratiques de production.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Pourquoi orchestrer&nbsp;?</strong> Un conteneur seul, c'est simple. Des <em>centaines</em> de
+    conteneurs répartis sur des dizaines de machines, avec du scaling, des mises à jour sans coupure, de
+    l'auto-réparation et du réseau interne — c'est un problème d'orchestration. Kubernetes (K8s) est le
+    standard de facto qui le résout de façon <strong>déclarative</strong>&nbsp;: on décrit l'état désiré, il
+    s'occupe de l'atteindre et de le maintenir.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Architecture de Kubernetes</h2>
+  <p>
+    Un cluster se divise en deux plans&nbsp;: le <strong>control plane</strong> (le cerveau, qui prend les
+    décisions) et les <strong>worker nodes</strong> (les machines qui exécutent réellement les conteneurs).
+    L'utilisateur ne parle qu'à l'<strong>API Server</strong>, via <code>kubectl</code> ou un outil GitOps.
+  </p>
+
+  <div class="k8s-arch">
+    <div class="k8s-conn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg>
+      <code>kubectl</code> / GitOps → API Server (point d'entrée unique)
+    </div>
+
+    <div class="k8s-plane">
+      <div class="k8s-section-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+        Control plane
+        <span class="tag">le cerveau du cluster</span>
+      </div>
+      <div class="k8s-comps">
+        <div class="k8s-comp"><b>API Server</b><span>Point d'entrée REST&nbsp;: valide et traite toutes les requêtes.</span></div>
+        <div class="k8s-comp"><b>etcd</b><span>Base clé-valeur&nbsp;: stocke l'état complet du cluster.</span></div>
+        <div class="k8s-comp"><b>Scheduler</b><span>Décide sur quel node placer chaque nouveau pod.</span></div>
+        <div class="k8s-comp"><b>Controller Manager</b><span>Boucles de réconciliation&nbsp;: état réel → état désiré.</span></div>
+      </div>
+    </div>
+
+    <div class="k8s-conn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+      pilote les nodes
+    </div>
+
+    <div class="k8s-nodes">
+      <div class="k8s-node">
+        <div class="k8s-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg>
+          Worker node 1
+        </div>
+        <div class="k8s-comps">
+          <div class="k8s-comp"><b>kubelet</b><span>Agent qui démarre &amp; surveille les pods du node.</span></div>
+          <div class="k8s-comp"><b>kube-proxy</b><span>Règles réseau &amp; load-balancing des Services.</span></div>
+          <div class="k8s-comp"><b>Container runtime</b><span>containerd&nbsp;: exécute réellement les conteneurs.</span></div>
+        </div>
+        <div class="k8s-pods"><span class="k8s-pod">pod web</span><span class="k8s-pod">pod web</span><span class="k8s-pod">pod api</span></div>
+      </div>
+      <div class="k8s-node">
+        <div class="k8s-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg>
+          Worker node 2
+        </div>
+        <div class="k8s-comps">
+          <div class="k8s-comp"><b>kubelet</b><span>Agent qui démarre &amp; surveille les pods du node.</span></div>
+          <div class="k8s-comp"><b>kube-proxy</b><span>Règles réseau &amp; load-balancing des Services.</span></div>
+          <div class="k8s-comp"><b>Container runtime</b><span>containerd&nbsp;: exécute réellement les conteneurs.</span></div>
+        </div>
+        <div class="k8s-pods"><span class="k8s-pod">pod web</span><span class="k8s-pod">pod worker</span></div>
+      </div>
+    </div>
+  </div>
+
+  <p>
+    Le principe central est la <strong>réconciliation</strong>&nbsp;: les controllers comparent en continu
+    l'état réel à l'état désiré (stocké dans etcd) et corrigent l'écart. Un pod meurt&nbsp;? Un controller en
+    recrée un. C'est ce qui rend Kubernetes <em>auto-réparateur</em>.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Les objets Kubernetes</h2>
+  <p>Tout dans K8s est un <strong>objet</strong> décrit en YAML et soumis à l'API. Passons-les en revue, du plus bas niveau au plus haut.</p>
+
+  <!-- Pod -->
+  <h3>Pod</h3>
+  <p>Le <strong>Pod</strong> est la plus petite unité déployable&nbsp;: un ou plusieurs conteneurs qui partagent le réseau (même IP) et le stockage. On en crée rarement un directement — on laisse un Deployment le gérer.</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">pod.yaml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">apiVersion: v1
+kind: Pod
+metadata:
+  name: web
+  labels:
+    app: web                     # étiquette qui servira aux Services/selectors
+spec:
+  containers:
+    - name: web
+      image: registre.exemple.com/app:1.4.2   # tag explicite (jamais latest)
+      ports:
+        - containerPort: 3000    # port écouté par le conteneur</code></pre>
+  </div>
+
+  <!-- Deployment -->
+  <h3>Deployment</h3>
+  <p>
+    Le <strong>Deployment</strong> est l'objet que l'on manipule au quotidien. Il gère un ReplicaSet qui
+    maintient un nombre de <strong>replicas</strong>, assure l'auto-réparation, et orchestre les
+    <strong>rolling updates</strong> (mise à jour progressive, sans coupure). C'est aussi ici qu'on déclare
+    <em>resources</em> et <em>probes</em>.
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">deployment.yaml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 3                        # 3 pods identiques maintenus en permanence
+  selector:
+    matchLabels:
+      app: web                       # ce Deployment gère les pods app=web
+  strategy:
+    type: RollingUpdate              # remplacement progressif -> zéro downtime
+    rollingUpdate:
+      maxSurge: 1                    # au plus 1 pod EN PLUS pendant la MAJ
+      maxUnavailable: 0              # aucun pod indisponible pendant la MAJ
+  template:                          # gabarit des pods créés
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: registre.exemple.com/app:1.4.2
+          ports:
+            - containerPort: 3000
+          resources:                 # requests = réservé, limits = plafond dur
+            requests:
+              cpu: "100m"            # 0,1 cœur garanti
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"        # dépassement mémoire -> OOMKilled
+          readinessProbe:            # "prêt à recevoir du trafic ?"
+            httpGet: { path: /healthz, port: 3000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:             # "encore vivant ?" sinon redémarrage
+            httpGet: { path: /healthz, port: 3000 }
+            initialDelaySeconds: 15
+            periodSeconds: 20</code></pre>
+  </div>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0z"/><path d="M12 7v5l3 3"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Rolling update, concrètement</div>
+      <p>Avec <code>maxSurge: 1</code> / <code>maxUnavailable: 0</code>, K8s crée un nouveau pod (v2), attend
+      qu'il soit <em>ready</em>, supprime un ancien (v1), et recommence — jusqu'à ce que tous les pods soient
+      en v2. La capacité de service ne descend jamais sous le seuil. En cas de problème&nbsp;:
+      <code>kubectl rollout undo deployment/web</code> revient à la version précédente.</p>
+    </div>
+  </div>
+
+  <!-- Service -->
+  <h3>Service</h3>
+  <p>
+    Les pods sont éphémères&nbsp;: leur IP change à chaque recréation. Le <strong>Service</strong> fournit un
+    point d'accès <em>stable</em> et répartit le trafic sur les pods correspondant à un selector. Trois types
+    selon la portée&nbsp;:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Type</th><th>Portée</th><th>Cas d'usage</th></tr></thead>
+      <tbody>
+        <tr><td><code>ClusterIP</code> <span class="muted">(défaut)</span></td><td>Interne au cluster uniquement</td><td>Communication entre services (app → db)</td></tr>
+        <tr><td><code>NodePort</code></td><td>Ouvre un port sur chaque node</td><td>Accès direct simple, dev/test</td></tr>
+        <tr><td><code>LoadBalancer</code></td><td>Provisionne un load balancer cloud externe</td><td>Exposer un service à Internet (via le cloud)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">service.yaml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  type: ClusterIP                    # IP virtuelle interne et stable
+  selector:
+    app: web                         # route vers tous les pods app=web
+  ports:
+    - port: 80                       # port exposé par le Service
+      targetPort: 3000               # port du conteneur cible</code></pre>
+  </div>
+
+  <!-- Ingress -->
+  <h3>Ingress</h3>
+  <p>
+    L'<strong>Ingress</strong> gère le routage HTTP/HTTPS de niveau 7&nbsp;: un point d'entrée unique qui
+    route selon le <em>host</em> et le <em>path</em> vers différents Services, avec terminaison TLS. Il
+    nécessite un <em>ingress controller</em> (ex. nginx-ingress) installé dans le cluster.
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">ingress.yaml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: app.exemple.com          # routage par nom de domaine
+      http:
+        paths:
+          - path: /                  # le site -> service "web"
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port: { number: 80 }
+          - path: /api               # l'API -> service "api"
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port: { number: 80 }
+  tls:                               # HTTPS : le certificat vit dans un Secret
+    - hosts: [ app.exemple.com ]
+      secretName: web-tls</code></pre>
+  </div>
+
+  <!-- ConfigMap & Secret -->
+  <h3>ConfigMap &amp; Secret</h3>
+  <p>
+    On ne code jamais la configuration en dur dans l'image. Le <strong>ConfigMap</strong> stocke la config
+    <em>non sensible</em> (variables, fichiers), le <strong>Secret</strong> les données <em>sensibles</em>
+    (mots de passe, tokens, certificats). Attention&nbsp;: un Secret est encodé en <strong>base64, pas
+    chiffré</strong> — voir l'encart bonnes pratiques.
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">config.yaml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+data:
+  APP_ENV: production                # config en clair, non sensible
+  LOG_LEVEL: info
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: web-secret
+type: Opaque
+data:
+  # base64 (echo -n 'super-secret' | base64) -> encodage, PAS chiffrement
+  DB_PASSWORD: c3VwZXItc2VjcmV0</code></pre>
+  </div>
+  <p>On les injecte ensuite dans les conteneurs du Deployment&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">deployment.yaml (extrait)</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">      containers:
+        - name: web
+          image: registre.exemple.com/app:1.4.2
+          envFrom:
+            - configMapRef:
+                name: web-config     # injecte APP_ENV et LOG_LEVEL comme variables
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: web-secret   # lit la clé DB_PASSWORD du Secret
+                  key: DB_PASSWORD</code></pre>
+  </div>
+
+  <!-- PV / PVC -->
+  <h3>PersistentVolume &amp; PersistentVolumeClaim</h3>
+  <p>
+    Les conteneurs sont éphémères&nbsp;; pour persister des données (base de données, uploads) il faut du
+    stockage durable. Le <strong>PersistentVolume (PV)</strong> est une ressource de stockage du cluster&nbsp;;
+    le <strong>PersistentVolumeClaim (PVC)</strong> est une <em>demande</em> de stockage émise par l'app, qui
+    se lie à un PV. En pratique, une <em>StorageClass</em> provisionne le PV <strong>dynamiquement</strong>.
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">pvc.yaml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data
+spec:
+  accessModes: [ ReadWriteOnce ]     # monté en R/W par un seul node à la fois
+  storageClassName: standard         # provisioning dynamique par le cloud
+  resources:
+    requests:
+      storage: 10Gi                  # taille demandée -> un PV de 10Gi est créé</code></pre>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Helm — le gestionnaire de paquets K8s</h2>
+  <p>
+    Écrire et versionner des dizaines de manifests par environnement devient vite ingérable.
+    <strong>Helm</strong> package tout ça dans un <em>chart</em> réutilisable et paramétrable&nbsp;: les
+    manifests deviennent des <strong>templates</strong>, alimentés par un fichier de <strong>values</strong>.
+    Chaque installation est une <em>release</em> versionnée (donc rollback-able).
+  </p>
+
+  <h3>Structure d'un chart</h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">arborescence</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">mon-app/
+├── Chart.yaml        # métadonnées : nom, version du chart, appVersion
+├── values.yaml       # valeurs par défaut (surchargeables à l'install)
+├── templates/        # manifests templatisés (Go templating)
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   ├── ingress.yaml
+│   └── _helpers.tpl  # fonctions/labels réutilisables
+└── charts/           # sous-charts (dépendances, ex. postgresql)</code></pre>
+  </div>
+
+  <p>Les valeurs par défaut vivent dans <code>values.yaml</code>&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">values.yaml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">replicaCount: 3
+image:
+  repository: registre.exemple.com/app
+  tag: "1.4.2"
+service:
+  type: ClusterIP
+  port: 80
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits:   { cpu: 500m, memory: 256Mi }</code></pre>
+  </div>
+
+  <p>…et sont injectées dans les templates avec la syntaxe <code>{{ .Values.* }}</code>&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">templates/deployment.yaml (extrait)</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}</code></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">bash</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash"># Installer une release nommée "web" dans le namespace prod
+helm install web ./mon-app -n prod --create-namespace
+
+# Mettre à jour : nouvelle version d'image, sans toucher au reste
+helm upgrade web ./mon-app -n prod --set image.tag=1.4.3
+
+# Revenir à la révision précédente en cas de souci
+helm rollback web -n prod
+
+# Inspecter / lister
+helm list -n prod
+helm get values web -n prod</code></pre>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Kubernetes vs Docker Swarm vs AWS ECS</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Critère</th><th>Kubernetes</th><th>Docker Swarm</th><th>AWS ECS</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Complexité</td><td><span class="pill pill--red">Élevée</span> — forte courbe d'apprentissage</td><td><span class="pill pill--green">Faible</span> — intégré à Docker</td><td><span class="pill pill--amber">Moyenne</span> — managé par AWS</td></tr>
+        <tr><td>Scalabilité</td><td>Très élevée &amp; fine (HPA, cluster autoscaler)</td><td>Correcte, limitée</td><td>Élevée, intégrée à AWS</td></tr>
+        <tr><td>Écosystème</td><td>Immense (CNCF, Helm, operators)</td><td>Réduit, en déclin</td><td>AWS-natif (ALB, IAM, Fargate)</td></tr>
+        <tr><td>Portabilité</td><td>Multi-cloud &amp; on-premise</td><td>Multi-cloud</td><td>Verrouillé sur AWS</td></tr>
+        <tr><td>Serverless</td><td>Via Fargate / Knative</td><td>Non</td><td>Fargate (sans gérer de serveurs)</td></tr>
+        <tr><td>Idéal pour</td><td>Systèmes complexes, à grande échelle, multi-cloud</td><td>Petits déploiements, simplicité</td><td>Équipes 100&nbsp;% AWS voulant du managé</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">En pratique, on consomme rarement Kubernetes «&nbsp;à la main&nbsp;»&nbsp;: on utilise une offre managée (GKE, EKS, AKS, DigitalOcean Kubernetes) qui gère le control plane à notre place.</p>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo production</div>
+      <ul>
+        <li><strong>Resource requests &amp; limits systématiques</strong> — les <em>requests</em> guident le scheduler et garantissent une part de CPU/mémoire&nbsp;; les <em>limits</em> évitent qu'un pod affame ses voisins (<em>noisy neighbor</em>). Sans elles, un cluster devient imprévisible.</li>
+        <li><strong>Liveness &amp; readiness probes</strong> — la <em>readiness</em> retire un pod du load balancing tant qu'il n'est pas prêt (démarrage, surcharge)&nbsp;; la <em>liveness</em> redémarre un pod bloqué. Indispensables pour du zéro downtime.</li>
+        <li><strong>Namespaces pour isoler les environnements</strong> — <code>dev</code>, <code>staging</code>, <code>prod</code> dans des namespaces séparés, avec <em>ResourceQuota</em> et RBAC distincts. Isolation logique, quotas, et permissions par équipe.</li>
+        <li><strong>Tout en déclaratif &amp; versionné</strong> — les manifests/charts vivent dans Git (cf. chapitre GitOps), jamais de <code>kubectl edit</code> manuel en prod.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Un Secret n'est pas chiffré</div>
+      <p>Les <code>Secret</code> sont seulement encodés en <strong>base64</strong> et lisibles par quiconque a
+      les droits sur le namespace. En production&nbsp;: activer le <em>chiffrement d'etcd at-rest</em>, verrouiller
+      le RBAC, et gérer les secrets avec <strong>Sealed Secrets</strong>, <strong>External Secrets Operator</strong>
+      ou <strong>Vault</strong> — jamais de secret en clair dans Git.</p>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">bash — namespaces</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash"># Isoler un environnement complet dans son namespace
+kubectl create namespace staging
+kubectl apply -f k8s/ -n staging
+kubectl get pods -n staging</code></pre>
+  </div>
+
+  <p class="muted">
+    On sait déployer et opérer des conteneurs à l'échelle. Reste à provisionner l'infrastructure qui héberge
+    ce cluster de façon reproductible&nbsp;: c'est l'objet du chapitre <strong>Infrastructure as Code (Terraform)</strong>.
+  </p>
+
+</article>

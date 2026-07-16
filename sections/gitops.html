@@ -1,0 +1,322 @@
+<article class="chapter" data-chapter="gitops">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">07</span>
+      <span class="chapter-kicker">Module DevOps</span>
+    </div>
+    <h1 class="chapter-title">GitOps &amp; Déploiement Continu (CD)</h1>
+    <p class="chapter-lead">Faire de Git la source de vérité unique de l'état désiré — infra
+      <em>et</em> applications. Un agent dans le cluster réconcilie en continu. Push vs pull, ArgoCD,
+      stratégies de déploiement, et le rollback réduit à un simple <code>git revert</code>.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le principe.</strong> En GitOps, on ne pousse plus les changements <em>vers</em> le cluster&nbsp;:
+    on décrit l'état voulu dans Git, et un agent installé dans le cluster <strong>tire</strong> cet état et le
+    fait converger en permanence. Git devient l'unique source de vérité — pour le déploiement des apps comme
+    pour la configuration de l'infra.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Qu'est-ce que le GitOps&nbsp;?</h2>
+  <p>
+    Le GitOps applique les pratiques Git (branches, PR, revue, historique) au <strong>déploiement</strong> et
+    à l'<strong>opération</strong>. Tout l'état désiré — manifests Kubernetes, charts Helm, config Terraform —
+    vit dans des dépôts Git. Un <strong>opérateur de réconciliation</strong> (ArgoCD, Flux) surveille ces
+    dépôts et aligne le cluster sur ce qui y est déclaré. Concrètement&nbsp;:
+  </p>
+  <ul>
+    <li>Le <strong>déploiement</strong> = un commit/merge dans le repo de config. Pas de <code>kubectl apply</code> manuel.</li>
+    <li>Le <strong>rollback</strong> = un <code>git revert</code>. On revient à un état connu et tracé.</li>
+    <li>L'<strong>audit</strong> est gratuit&nbsp;: l'historique Git répond à «&nbsp;qui a déployé quoi, quand&nbsp;».</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>CI/CD classique (push) vs GitOps (pull)</h2>
+  <p>La différence tient à la <strong>direction du flux</strong> et à <em>qui détient les accès au cluster</em>&nbsp;:</p>
+
+  <div class="flow-compare">
+    <!-- PUSH -->
+    <div class="flow-col flow-col--push">
+      <div class="flow-col__title"><span class="pill pill--red">Push-based</span> CI/CD classique</div>
+      <p class="flow-col__sub">Le pipeline pousse les changements dans le cluster.</p>
+      <div class="flow-stack">
+        <div class="flow-node">Développeur</div>
+        <div class="flow-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>git push</div>
+        <div class="flow-node">Repo Git</div>
+        <div class="flow-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>déclenche</div>
+        <div class="flow-node">Pipeline CI/CD<small>détient les accès cluster 🔑</small></div>
+        <div class="flow-arrow flow-arrow--push"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>kubectl apply (push)</div>
+        <div class="flow-cluster"><b>☸ Cluster</b>reçoit passivement</div>
+      </div>
+    </div>
+
+    <!-- PULL -->
+    <div class="flow-col flow-col--pull">
+      <div class="flow-col__title"><span class="pill pill--green">Pull-based</span> GitOps</div>
+      <p class="flow-col__sub">Un agent dans le cluster tire l'état désiré et réconcilie.</p>
+      <div class="flow-stack">
+        <div class="flow-node">Développeur</div>
+        <div class="flow-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>git push (PR)</div>
+        <div class="flow-node">Repo Git<small>source de vérité</small></div>
+        <div class="flow-arrow flow-arrow--pull"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>watch + pull</div>
+        <div class="flow-cluster"><b>☸ Cluster · agent ArgoCD</b>tire l'état &amp; réconcilie ↺</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Pourquoi le pull est plus sûr</div>
+      <p>En push, le pipeline détient des <strong>identifiants d'admin du cluster</strong> — une CI compromise
+      compromet la prod. En pull, <strong>aucun secret cluster ne sort du cluster</strong>&nbsp;: l'agent lit Git
+      (droits en lecture) et applique en interne. La surface d'attaque est nettement réduite, et le cluster
+      s'auto-corrige en continu.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Les 4 principes du GitOps</h2>
+  <div class="calms">
+    <div class="calms__pillar" style="--p-color:#6366f1">
+      <div class="calms__letter">1</div>
+      <h4>Déclaratif</h4>
+      <p>L'état désiré du système est décrit de façon déclarative (YAML, HCL).</p>
+    </div>
+    <div class="calms__pillar" style="--p-color:#8b5cf6">
+      <div class="calms__letter">2</div>
+      <h4>Versionné &amp; immuable</h4>
+      <p>Cet état est stocké dans Git&nbsp;: versionné, auditable, avec un historique complet.</p>
+    </div>
+    <div class="calms__pillar" style="--p-color:#ec4899">
+      <div class="calms__letter">3</div>
+      <h4>Tiré automatiquement</h4>
+      <p>Des agents appliquent automatiquement l'état désiré depuis la source.</p>
+    </div>
+    <div class="calms__pillar" style="--p-color:#10b981">
+      <div class="calms__letter">4</div>
+      <h4>Réconcilié en continu</h4>
+      <p>Les agents détectent et corrigent en permanence les écarts (drift).</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>ArgoCD en détail</h2>
+  <p>
+    <strong>ArgoCD</strong> est un contrôleur GitOps déclaratif pour Kubernetes, doté d'une interface web
+    riche. Il compare en continu l'état <em>désiré</em> (Git) à l'état <em>réel</em> (cluster) et synchronise.
+  </p>
+
+  <div class="arch">
+    <div class="arch__node" style="--c:#8b5cf6">Repo Git<small>manifests / Helm</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>pull</div>
+    <div class="arch__node" style="--c:#10b981">ArgoCD<small>controller (in-cluster)</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>sync</div>
+    <div class="arch__node" style="--c:#6366f1">Ressources K8s<small>état réel</small></div>
+  </div>
+
+  <h3>Les objets d'ArgoCD</h3>
+  <ul>
+    <li><strong>Application (CRD)</strong> — l'objet central&nbsp;: il lie une <em>source</em> (repo + chemin + révision) à une <em>destination</em> (cluster + namespace), avec une <em>sync policy</em>.</li>
+    <li><strong>ApplicationSet</strong> — génère automatiquement de multiples Applications à partir d'un gabarit (une par environnement, par cluster ou par dossier). Idéal pour éviter la duplication.</li>
+    <li><strong>Sync policy</strong> — manuelle (on clique/valide) ou <em>automated</em> (auto-sync), avec <code>prune</code> et <code>selfHeal</code>.</li>
+  </ul>
+
+  <h3>Manifest Application — complet et commenté</h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">argocd/applications/web-prod.yaml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: web-prod
+  namespace: argocd                 # ArgoCD vit dans son propre namespace
+spec:
+  project: default
+
+  # --- SOURCE : où est l'état désiré ---
+  source:
+    repoURL: https://github.com/acme/config-repo.git
+    targetRevision: main            # branche/tag suivi
+    path: apps/web/overlays/prod    # dossier des manifests (Kustomize ici)
+
+  # --- DESTINATION : où déployer ---
+  destination:
+    server: https://kubernetes.default.svc   # le cluster local
+    namespace: prod
+
+  # --- POLITIQUE DE SYNCHRONISATION ---
+  syncPolicy:
+    automated:
+      prune: true                   # supprime les ressources retirées du Git
+      selfHeal: true                # annule tout changement manuel (anti-drift)
+    syncOptions:
+      - CreateNamespace=true        # crée le namespace s'il n'existe pas
+    retry:
+      limit: 3                      # réessaie en cas d'échec de sync
+      backoff:
+        duration: 10s
+        maxDuration: 3m</code></pre>
+  </div>
+
+  <h3>Drift detection &amp; auto-sync</h3>
+  <p>
+    ArgoCD calcule en continu un statut de synchronisation. Si quelqu'un modifie le cluster à la main
+    (<code>kubectl edit</code>), l'état réel diverge du Git&nbsp;: l'Application passe <strong>OutOfSync</strong>
+    — c'est le <em>drift</em>. Deux comportements&nbsp;:
+  </p>
+  <ul>
+    <li><strong>Auto-sync</strong> (<code>automated</code>) — ArgoCD réapplique automatiquement le Git dès qu'un écart apparaît.</li>
+    <li><strong>Self-heal</strong> (<code>selfHeal: true</code>) — tout changement manuel est <em>immédiatement écrasé</em> par l'état déclaré dans Git. Le Git gagne, toujours.</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Alternative : Flux CD</h2>
+  <p>
+    <strong>Flux</strong> est l'autre grand opérateur GitOps (CNCF, comme ArgoCD). Même principe pull-based,
+    philosophie différente&nbsp;:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>&nbsp;</th><th>ArgoCD</th><th>Flux CD</th></tr></thead>
+      <tbody>
+        <tr><td>Interface</td><td>UI web riche intégrée</td><td>CLI-first, pas d'UI native (via Weave GitOps)</td></tr>
+        <tr><td>Modèle</td><td>Objet <code>Application</code> centralisé</td><td>Boîte à outils modulaire (<code>GitRepository</code> + <code>Kustomization</code>)</td></tr>
+        <tr><td>Multi-tenant</td><td>Projects &amp; RBAC intégrés</td><td>Léger, orienté «&nbsp;infra as code&nbsp;»</td></tr>
+        <tr><td>Idéal pour</td><td>Équipes voulant visualiser &amp; piloter via une UI</td><td>Approche minimaliste, tout en YAML/CLI</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Stratégies de déploiement</h2>
+  <p>Le GitOps <em>orchestre</em> le déploiement, mais la <strong>manière</strong> de basculer d'une version à l'autre reste à choisir. Trois stratégies&nbsp;:</p>
+
+  <!-- Rolling -->
+  <div class="strat">
+    <div class="strat__head">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+      Rolling update
+    </div>
+    <p class="strat__desc">Les pods v1 sont remplacés <strong>progressivement</strong> par des v2, un lot à la fois. Zéro downtime, pas de coût d'infra doublé. Stratégie par défaut de Kubernetes.</p>
+    <div class="strat__flow">
+      <div class="strat__step"><div class="pod-row"><span class="pod pod--v1">v1</span><span class="pod pod--v1">v1</span><span class="pod pod--v1">v1</span></div><span class="strat__step-cap">100&nbsp;% v1</span></div>
+      <span class="strat__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+      <div class="strat__step"><div class="pod-row"><span class="pod pod--v2">v2</span><span class="pod pod--v1">v1</span><span class="pod pod--v1">v1</span></div><span class="strat__step-cap">1 pod migré</span></div>
+      <span class="strat__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+      <div class="strat__step"><div class="pod-row"><span class="pod pod--v2">v2</span><span class="pod pod--v2">v2</span><span class="pod pod--v1">v1</span></div><span class="strat__step-cap">2/3 migrés</span></div>
+      <span class="strat__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+      <div class="strat__step"><div class="pod-row"><span class="pod pod--v2">v2</span><span class="pod pod--v2">v2</span><span class="pod pod--v2">v2</span></div><span class="strat__step-cap">100&nbsp;% v2</span></div>
+    </div>
+  </div>
+
+  <!-- Blue-Green -->
+  <div class="strat">
+    <div class="strat__head">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="18" rx="1"/><rect x="13" y="3" width="8" height="18" rx="1"/></svg>
+      Blue-Green
+    </div>
+    <p class="strat__desc">Deux environnements complets coexistent. <strong>Blue</strong> sert le trafic pendant que <strong>Green</strong> (la v2) est déployé et testé. On <strong>bascule tout le trafic d'un coup</strong>. Rollback instantané&nbsp;: on rebascule sur Blue. Coût&nbsp;: infra doublée le temps de la bascule.</p>
+    <div class="strat__flow">
+      <div class="strat__step">
+        <span class="traffic">Blue v1 · 100 %</span>
+        <div class="pod-row"><span class="pod pod--v1">v1</span><span class="pod pod--v1">v1</span></div>
+        <span class="traffic">Green v2 · 0 %</span>
+        <div class="pod-row"><span class="pod pod--idle">v2</span><span class="pod pod--idle">v2</span></div>
+        <span class="strat__step-cap">Green prêt, en attente</span>
+      </div>
+      <span class="strat__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+      <div class="strat__step">
+        <span class="traffic">Blue v1 · 0 %</span>
+        <div class="pod-row"><span class="pod pod--idle">v1</span><span class="pod pod--idle">v1</span></div>
+        <span class="traffic">Green v2 · 100 %</span>
+        <div class="pod-row"><span class="pod pod--v2">v2</span><span class="pod pod--v2">v2</span></div>
+        <span class="strat__step-cap">Bascule instantanée du trafic</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Canary -->
+  <div class="strat">
+    <div class="strat__head">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+      Canary
+    </div>
+    <p class="strat__desc">On expose la v2 à une <strong>petite fraction du trafic</strong>, on surveille les métriques (erreurs, latence), puis on augmente progressivement. On coupe au moindre problème. Automatisable avec <strong>Argo Rollouts</strong> ou Flagger.</p>
+    <div class="strat__flow">
+      <div class="strat__step">
+        <span class="traffic">v1 90 % · v2 10 %</span>
+        <div class="pod-row"><span class="pod pod--v1">v1</span><span class="pod pod--v1">v1</span><span class="pod pod--v1">v1</span><span class="pod pod--v2">v2</span></div>
+        <span class="strat__step-cap">Canary : 10 % surveillé</span>
+      </div>
+      <span class="strat__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+      <div class="strat__step">
+        <span class="traffic">v1 50 % · v2 50 %</span>
+        <div class="pod-row"><span class="pod pod--v1">v1</span><span class="pod pod--v1">v1</span><span class="pod pod--v2">v2</span><span class="pod pod--v2">v2</span></div>
+        <span class="strat__step-cap">Montée en charge OK</span>
+      </div>
+      <span class="strat__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+      <div class="strat__step">
+        <span class="traffic">v1 0 % · v2 100 %</span>
+        <div class="pod-row"><span class="pod pod--v2">v2</span><span class="pod pod--v2">v2</span><span class="pod pod--v2">v2</span><span class="pod pod--v2">v2</span></div>
+        <span class="strat__step-cap">Promotion complète</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Structure d'un repo GitOps</h2>
+  <p>
+    Bonne pratique&nbsp;: <strong>séparer le repo applicatif</strong> (code source + CI qui build l'image) du
+    <strong>repo de configuration</strong> (manifests que l'opérateur GitOps surveille). La CI met à jour le tag
+    d'image dans le repo de config&nbsp;; ArgoCD déploie. Les responsabilités restent découplées.
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">config-repo (surveillé par ArgoCD)</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">config-repo/
+├── apps/
+│   └── web/
+│       ├── base/                    # manifests communs (Kustomize)
+│       │   ├── deployment.yaml
+│       │   ├── service.yaml
+│       │   └── kustomization.yaml
+│       └── overlays/                # spécificités par environnement
+│           ├── staging/
+│           │   ├── kustomization.yaml
+│           │   └── replicas-patch.yaml   # ex : 1 replica
+│           └── prod/
+│               ├── kustomization.yaml
+│               └── replicas-patch.yaml   # ex : 3 replicas + image tag
+└── argocd/
+    └── applications/
+        ├── web-staging.yaml         # Application ArgoCD (pointe overlays/staging)
+        └── web-prod.yaml            # Application ArgoCD (pointe overlays/prod)</code></pre>
+  </div>
+  <p class="muted">Le flux complet&nbsp;: <code>git push</code> du code → la CI build &amp; scanne l'image (ch.3-4) → la CI bump le tag d'image dans <code>config-repo</code> → ArgoCD détecte le commit et synchronise le cluster.</p>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo GitOps</div>
+      <ul>
+        <li><strong>Jamais de <code>kubectl apply</code> manuel en prod</strong> — avec <code>selfHeal</code>, il serait de toute façon écrasé. Tout changement passe par une PR sur le repo de config.</li>
+        <li><strong>Git = source de vérité unique</strong> — l'état du cluster doit toujours être déductible du repo. Pas de configuration «&nbsp;cachée&nbsp;» appliquée à la main.</li>
+        <li><strong>Rollback = <code>git revert</code></strong> — pour revenir en arrière, on annule le commit&nbsp;: l'opérateur ramène le cluster à l'état précédent, tracé et reproductible.</li>
+        <li><strong>Repos séparés</strong> app / config — la CI n'a pas besoin d'accès au cluster&nbsp;; elle écrit juste dans le repo de config.</li>
+        <li><strong>Revue obligatoire</strong> — protéger le repo de config comme la prod (required reviews, cf. chapitre Git).</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Le déploiement est désormais automatique, traçable et réversible. Reste à <em>voir</em> ce qui tourne en
+    production&nbsp;: c'est l'objet du chapitre <strong>Monitoring &amp; Observabilité</strong>.
+  </p>
+
+</article>

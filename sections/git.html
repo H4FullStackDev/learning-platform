@@ -1,0 +1,469 @@
+<article class="chapter" data-chapter="git">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">02</span>
+      <span class="chapter-kicker">Module DevOps</span>
+    </div>
+    <h1 class="chapter-title">Versioning &amp; Collaboration (Git)</h1>
+    <p class="chapter-lead">Au-delà des commandes : les stratégies de branches, la revue de code, la
+      protection des branches et les conventions de commit qui font tourner une équipe — et alimentent
+      la chaîne CI/CD.</p>
+  </header>
+
+  <!-- ============================================================= -->
+  <p class="lead-note">
+    <strong>Rappel express.</strong> Git est un gestionnaire de versions <em>distribué</em> : chaque
+    clone contient l'historique complet. Un <strong>commit</strong> est un instantané immuable identifié
+    par un hash&nbsp;; une <strong>branche</strong> est un simple pointeur mobile vers un commit&nbsp;; le
+    <strong>merge</strong> et le <strong>rebase</strong> réintègrent un historique dans un autre. On part
+    de là — le vrai sujet, c'est <em>comment on s'organise à plusieurs</em>.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Stratégies de branches</h2>
+  <p>
+    Une <em>branching strategy</em> définit comment le travail circule de l'idée jusqu'à la production.
+    Deux modèles dominent, aux philosophies opposées&nbsp;: <strong>Git Flow</strong> (beaucoup de branches,
+    releases figées) et <strong>Trunk-Based Development</strong> (une seule branche vivante, livraison
+    continue).
+  </p>
+
+  <!-- ---------- Git Flow ---------- -->
+  <h3>Git Flow</h3>
+  <p>
+    Formalisé par Vincent Driessen (2010), Git Flow structure le travail autour de deux branches
+    permanentes — <code>main</code> (le code en production, taggé à chaque version) et <code>develop</code>
+    (l'intégration continue des fonctionnalités) — et de trois familles de branches temporaires.
+  </p>
+
+  <div class="figure">
+    <div class="figure__title">Modèle de branches Git Flow</div>
+    <svg viewBox="0 0 820 340" role="img" aria-label="Diagramme Git Flow : branches main, develop, feature, release et hotfix">
+      <text x="6" y="54"  font-size="11" font-weight="600" fill="#ef4444">hotfix/*</text>
+      <text x="6" y="114" font-size="11" font-weight="600" fill="#f59e0b">main</text>
+      <text x="6" y="174" font-size="11" font-weight="600" fill="#ec4899">release/*</text>
+      <text x="6" y="234" font-size="11" font-weight="600" fill="#6366f1">develop</text>
+      <text x="6" y="294" font-size="11" font-weight="600" fill="#10b981">feature/*</text>
+
+      <line x1="100" y1="110" x2="800" y2="110" stroke="#f59e0b" stroke-width="2.5"/>
+      <line x1="100" y1="230" x2="800" y2="230" stroke="#6366f1" stroke-width="2.5"/>
+      <line x1="250" y1="290" x2="410" y2="290" stroke="#10b981" stroke-width="2.5"/>
+      <line x1="520" y1="170" x2="580" y2="170" stroke="#ec4899" stroke-width="2.5"/>
+      <line x1="700" y1="50"  x2="720" y2="50"  stroke="#ef4444" stroke-width="2.5"/>
+
+      <g fill="none" stroke-width="2.5">
+        <path d="M210,230 C240,230 230,290 250,290" stroke="#10b981"/>
+        <path d="M410,290 C445,290 445,230 470,230" stroke="#10b981" stroke-dasharray="5 4"/>
+        <path d="M470,230 C500,230 500,170 520,170" stroke="#ec4899"/>
+        <path d="M580,170 C605,170 590,110 610,110" stroke="#ec4899" stroke-dasharray="5 4"/>
+        <path d="M580,170 C620,170 640,230 660,230" stroke="#ec4899" stroke-dasharray="5 4"/>
+        <path d="M680,110 C702,110 690,50 700,50" stroke="#ef4444"/>
+        <path d="M720,50 C742,50 728,110 740,110" stroke="#ef4444" stroke-dasharray="5 4"/>
+        <path d="M720,50 C772,50 748,230 762,230" stroke="#ef4444" stroke-dasharray="5 4"/>
+      </g>
+
+      <g>
+        <circle cx="130" cy="110" r="6" fill="#f59e0b"/><circle cx="610" cy="110" r="6" fill="#f59e0b"/><circle cx="740" cy="110" r="6" fill="#f59e0b"/>
+        <circle cx="130" cy="230" r="6" fill="#6366f1"/><circle cx="210" cy="230" r="6" fill="#6366f1"/><circle cx="300" cy="230" r="6" fill="#6366f1"/><circle cx="470" cy="230" r="6" fill="#6366f1"/><circle cx="560" cy="230" r="6" fill="#6366f1"/><circle cx="660" cy="230" r="6" fill="#6366f1"/><circle cx="760" cy="230" r="6" fill="#6366f1"/>
+        <circle cx="250" cy="290" r="6" fill="#10b981"/><circle cx="330" cy="290" r="6" fill="#10b981"/><circle cx="410" cy="290" r="6" fill="#10b981"/>
+        <circle cx="520" cy="170" r="6" fill="#ec4899"/><circle cx="580" cy="170" r="6" fill="#ec4899"/>
+        <circle cx="700" cy="50" r="6" fill="#ef4444"/><circle cx="720" cy="50" r="6" fill="#ef4444"/>
+      </g>
+
+      <g font-size="10" font-weight="700" fill="#f59e0b" text-anchor="middle">
+        <text x="130" y="94">v0.1</text><text x="610" y="94">v1.0</text><text x="740" y="94">v1.0.1</text>
+      </g>
+    </svg>
+    <div class="legend">
+      <span class="legend__item"><span class="legend__dot" style="background:#f59e0b"></span>main — production (taguée)</span>
+      <span class="legend__item"><span class="legend__dot" style="background:#6366f1"></span>develop — intégration</span>
+      <span class="legend__item"><span class="legend__dot" style="background:#10b981"></span>feature/* — fonctionnalités</span>
+      <span class="legend__item"><span class="legend__dot" style="background:#ec4899"></span>release/* — préparation de version</span>
+      <span class="legend__item"><span class="legend__dot" style="background:#ef4444"></span>hotfix/* — correctif urgent</span>
+    </div>
+    <div class="figure__caption">Trait plein = création de branche · tirets = fusion / retour vers develop &amp; main.</div>
+  </div>
+
+  <ul>
+    <li><strong>feature/*</strong> — part de <code>develop</code>, y retourne une fois la fonctionnalité prête (via PR).</li>
+    <li><strong>release/*</strong> — coupée depuis <code>develop</code> pour stabiliser une version (bugfix, doc, bump de version), puis fusionnée dans <code>main</code> <em>et</em> <code>develop</code>.</li>
+    <li><strong>hotfix/*</strong> — part de <code>main</code> pour corriger un incident de production, fusionnée dans <code>main</code> (nouveau tag) <em>et</em> <code>develop</code>.</li>
+  </ul>
+
+  <div class="accordion">
+    <button class="accordion__trigger" type="button">Commandes Git Flow (feature / release / hotfix)</button>
+    <div class="accordion__panel"><div class="accordion__panel-inner">
+      <div class="code-block">
+        <div class="code-block__head"><span class="lang">bash</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash"># Feature : on part de develop
+git switch develop
+git switch -c feature/panier-promo
+# ... commits ...
+git switch develop
+git merge --no-ff feature/panier-promo   # PR + review dans la vraie vie
+
+# Release : figer une version depuis develop
+git switch -c release/1.2.0 develop
+# bump de version, derniers correctifs...
+git switch main
+git merge --no-ff release/1.2.0
+git tag -a v1.2.0 -m "Release 1.2.0"
+git switch develop
+git merge --no-ff release/1.2.0
+
+# Hotfix : correctif urgent depuis main
+git switch -c hotfix/1.2.1 main
+# correction du bug...
+git switch main
+git merge --no-ff hotfix/1.2.1
+git tag -a v1.2.1 -m "Hotfix 1.2.1"
+git switch develop
+git merge --no-ff hotfix/1.2.1</code></pre>
+      </div>
+      <p class="muted">L'extension <code>git-flow</code> (<code>git flow init</code>, <code>git flow feature start ...</code>) automatise ces étapes, mais comprendre les branches sous-jacentes reste indispensable.</p>
+    </div></div>
+  </div>
+
+  <!-- ---------- Trunk-Based ---------- -->
+  <h3>Trunk-Based Development (TBD)</h3>
+  <p>
+    À l'opposé, le TBD n'a qu'une branche vivante&nbsp;: le <strong>trunk</strong> (<code>main</code>).
+    Chaque développeur y intègre son travail <em>au moins une fois par jour</em>, via des branches
+    ultra-courtes (quelques heures) ou des commits directs. Le code non terminé est masqué derrière des
+    <strong>feature flags</strong>. C'est le socle de la livraison continue pratiquée par Google, Meta ou
+    la plupart des SaaS.
+  </p>
+
+  <div class="figure">
+    <div class="figure__title">Modèle Trunk-Based Development</div>
+    <svg viewBox="0 0 820 240" role="img" aria-label="Diagramme Trunk-Based Development : un trunk unique avec des branches très courtes">
+      <text x="6" y="86"  font-size="11" font-weight="600" fill="#10b981">feature</text>
+      <text x="6" y="144" font-size="11" font-weight="600" fill="#6366f1">main</text>
+      <text x="6" y="204" font-size="11" font-weight="600" fill="#f59e0b">release</text>
+
+      <line x1="95" y1="140" x2="795" y2="140" stroke="#6366f1" stroke-width="2.5"/>
+
+      <g fill="none" stroke="#10b981" stroke-width="2.5">
+        <path d="M230,140 C252,140 246,82 262,82"/>
+        <line x1="262" y1="82" x2="322" y2="82"/>
+        <path d="M322,82 C356,82 372,140 395,140" stroke-dasharray="5 4"/>
+        <path d="M505,140 C523,140 518,82 528,82"/>
+        <path d="M528,82 C548,82 545,140 560,140" stroke-dasharray="5 4"/>
+      </g>
+      <path d="M670,140 C692,140 685,200 705,200" fill="none" stroke="#f59e0b" stroke-width="2.5"/>
+
+      <g fill="#6366f1">
+        <circle cx="120" cy="140" r="5.5"/><circle cx="175" cy="140" r="5.5"/><circle cx="230" cy="140" r="5.5"/>
+        <circle cx="285" cy="140" r="5.5"/><circle cx="340" cy="140" r="5.5"/><circle cx="395" cy="140" r="5.5"/>
+        <circle cx="450" cy="140" r="5.5"/><circle cx="505" cy="140" r="5.5"/><circle cx="560" cy="140" r="5.5"/>
+        <circle cx="615" cy="140" r="5.5"/><circle cx="670" cy="140" r="5.5"/><circle cx="725" cy="140" r="5.5"/><circle cx="770" cy="140" r="5.5"/>
+      </g>
+      <g fill="#10b981"><circle cx="262" cy="82" r="5.5"/><circle cx="322" cy="82" r="5.5"/><circle cx="528" cy="82" r="5.5"/></g>
+      <circle cx="705" cy="200" r="5.5" fill="#f59e0b"/>
+      <text x="735" y="204" font-size="10" font-weight="700" fill="#f59e0b">v2.4</text>
+      <text x="292" y="62" font-size="9.5" fill="currentColor" opacity="0.6" text-anchor="middle">≤ 1 jour</text>
+    </svg>
+    <div class="legend">
+      <span class="legend__item"><span class="legend__dot" style="background:#6366f1"></span>main (trunk) — toujours déployable</span>
+      <span class="legend__item"><span class="legend__dot" style="background:#10b981"></span>feature — branches très courtes</span>
+      <span class="legend__item"><span class="legend__dot" style="background:#f59e0b"></span>release — coupée depuis le trunk</span>
+    </div>
+    <div class="figure__caption">Commits fréquents sur le trunk + petites branches (&lt; 1 jour), le code inachevé restant caché derrière des feature flags → déploiement continu.</div>
+  </div>
+
+  <div class="accordion">
+    <button class="accordion__trigger" type="button">Le workflow Trunk-Based au quotidien</button>
+    <div class="accordion__panel"><div class="accordion__panel-inner">
+      <div class="code-block">
+        <div class="code-block__head"><span class="lang">bash</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash"># Branche courte, synchronisée avec un trunk qui bouge vite
+git switch -c fix/tri-produits main
+# petit lot cohérent + tests verts
+git commit -m "fix(catalog): corrige le tri par prix décroissant"
+
+# rebase pour garder un historique linéaire, puis PR
+git fetch origin
+git rebase origin/main
+git push -u origin fix/tri-produits   # ouvre la PR, CI + review, squash-merge
+
+# Code non terminé ? On le cache derrière un flag, on merge quand même
+if (featureFlags.isEnabled("nouveau-checkout")) {
+  renderNouveauCheckout();
+}</code></pre>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ---------- Comparaison ---------- -->
+  <h3>Git Flow ou Trunk-Based&nbsp;: comment choisir&nbsp;?</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Critère</th><th>Git Flow</th><th>Trunk-Based</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Branches vivantes</td><td>2 permanentes + 3 familles temporaires</td><td>1 seule (le trunk)</td></tr>
+        <tr><td>Durée de vie des branches</td><td>Longue (jours → semaines)</td><td>Très courte (heures, &lt; 1 jour)</td></tr>
+        <tr><td>Cadence de release</td><td>Versions planifiées &amp; figées</td><td>Continue, plusieurs fois par jour</td></tr>
+        <tr><td>Feature flags</td><td>Optionnels</td><td>Quasi indispensables</td></tr>
+        <tr><td>Conflits de merge</td><td>Merges volumineux, risque de « merge hell »</td><td>Petits &amp; fréquents, peu de conflits</td></tr>
+        <tr><td>Prérequis</td><td>Discipline de branches</td><td>CI solide, tests rapides, culture de revue</td></tr>
+        <tr><td>Idéal pour</td><td>Apps versionnées : mobile (stores), desktop, on-premise</td><td>SaaS web, microservices, livraison continue</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card">
+          <h4><span class="pill pill--violet">Git Flow</span></h4>
+          <ul>
+            <li>Plusieurs versions à maintenir <strong>en parallèle</strong> (v1.x et v2.x).</li>
+            <li>Releases contraintes par un tiers (validation d'un store, client on-premise).</li>
+            <li>Équipe nombreuse ou junior : le cadre explicite rassure.</li>
+            <li>Pipeline CD encore immature.</li>
+          </ul>
+        </div>
+        <div class="spec-card">
+          <h4><span class="pill pill--green">Trunk-Based</span></h4>
+          <ul>
+            <li>Objectif de <strong>déploiement continu</strong> (plusieurs prod/jour).</li>
+            <li>Suite de tests automatisés fiable et rapide.</li>
+            <li>Équipe à l'aise avec les feature flags et la revue continue.</li>
+            <li>Web / API où l'on ne maintient qu'une seule version en prod.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">La taille d'équipe n'est pas le seul facteur</div>
+      <p>On croit souvent « petite équipe → Trunk-Based, grande équipe → Git Flow ». En réalité, <strong>Google
+      fait du Trunk-Based avec des dizaines de milliers de développeurs</strong>. Le vrai discriminant, c'est
+      votre <strong>modèle de release</strong> (continue vs versionnée) et la <strong>maturité de votre CI</strong>.
+      GitHub Flow — trunk + branches courtes + PR — est un excellent compromis pour démarrer.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Pull Requests / Merge Requests</h2>
+  <p>
+    La PR (GitHub) ou MR (GitLab) est l'unité de collaboration&nbsp;: elle propose de fusionner une branche,
+    déclenche la CI et sert de support à la <strong>revue de code</strong>. Une bonne revue attrape des bugs,
+    diffuse la connaissance et maintient une cohérence d'architecture — à condition d'y mettre les bonnes
+    pratiques.
+  </p>
+
+  <h3>Côté auteur</h3>
+  <ul>
+    <li><strong>PR petites et focalisées</strong> — une intention par PR. En dessous de ~400 lignes modifiées, la revue est bien plus efficace.</li>
+    <li><strong>Description utile</strong> — <em>quoi</em>, <em>pourquoi</em>, <em>comment tester</em>. Lier l'issue/ticket (<code>Closes #142</code>).</li>
+    <li><strong>Auto-revue d'abord</strong> — relire son propre diff avant de solliciter les autres.</li>
+    <li><strong>CI verte</strong> avant de demander la revue&nbsp;; utiliser une <em>Draft PR</em> pour un retour précoce.</li>
+    <li><strong>Répondre à tous les commentaires</strong> et résoudre les threads plutôt que de les ignorer.</li>
+  </ul>
+
+  <h3>Côté relecteur</h3>
+  <ul>
+    <li><strong>Réactivité</strong> — une PR qui traîne, c'est du contexte perdu et des conflits qui s'accumulent.</li>
+    <li><strong>Distinguer le bloquant du détail</strong> — préfixer les remarques mineures par <code>nit:</code>.</li>
+    <li><strong>Critiquer le code, pas la personne</strong> — proposer, expliquer le « pourquoi », suggérer des alternatives.</li>
+    <li><strong>Vérifier les tests</strong> autant que le code de production.</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Protection de branches</h2>
+  <p>
+    Protéger <code>main</code> (et <code>develop</code>) empêche les erreurs coûteuses&nbsp;: push direct,
+    merge sans revue, historique réécrit. On y attache un ensemble de règles vérifiées automatiquement
+    avant tout merge.
+  </p>
+  <ul>
+    <li><strong>Required reviews</strong> — 1 à 2 approbations&nbsp;; invalider les approbations si de nouveaux commits arrivent&nbsp;; exiger l'avis des <em>Code Owners</em>.</li>
+    <li><strong>Required status checks</strong> — la CI (build, lint, tests, scan sécurité) doit passer, sur une branche à jour avec la cible.</li>
+    <li><strong>Signed commits</strong> — commits signés GPG/SSH pour garantir l'auteur.</li>
+    <li><strong>Linear history</strong> — interdire les merge commits (squash ou rebase only) pour un historique lisible.</li>
+    <li><strong>Restrictions</strong> — pas de force-push, pas de suppression de branche, résolution des conversations obligatoire.</li>
+  </ul>
+
+  <h3>CODEOWNERS — router la revue automatiquement</h3>
+  <p>
+    Placé à la racine, dans <code>.github/</code> ou <code>docs/</code>, le fichier <code>CODEOWNERS</code>
+    désigne les relecteurs requis selon les chemins modifiés. GitHub/GitLab les ajoutent automatiquement à la PR.
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">CODEOWNERS</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash"># Chaque ligne : &lt;motif de chemin&gt;  &lt;propriétaires&gt;
+# Le dernier motif qui matche l'emporte.
+
+*                       @acme/maintainers        # par défaut
+/api/                   @acme/backend-team
+/web/                   @acme/frontend-team
+*.tf                    @acme/platform @jdupont   # IaC : équipe + relecteur nommé
+/.github/workflows/     @acme/devops
+/docs/                  @acme/tech-writers</code></pre>
+  </div>
+
+  <h3>Configuration en tant que code — <code>.github/settings.yml</code></h3>
+  <p>
+    Plutôt que de cliquer dans l'UI, on versionne les règles. Exemple avec l'app
+    <a href="https://github.com/repository-settings/app" target="_blank" rel="noopener">Repository&nbsp;Settings</a>
+    (format YAML, appliqué automatiquement à chaque push) :
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">.github/settings.yml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">branches:
+  - name: main
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 2
+        dismiss_stale_reviews: true          # invalide les approbations obsolètes
+        require_code_owner_reviews: true     # respecte CODEOWNERS
+      required_status_checks:
+        strict: true                         # branche à jour obligatoire
+        contexts:
+          - "ci/build"
+          - "ci/test"
+          - "security/scan"
+      required_signatures: true              # commits signés (GPG/SSH)
+      required_linear_history: true          # ni merge commit ni force-push
+      enforce_admins: true                   # la règle s'applique aussi aux admins
+      restrictions: null                     # personne ne pousse en direct</code></pre>
+  </div>
+
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Équivalents GitLab</div>
+      <p>Les mêmes garde-fous existent sous d'autres noms&nbsp;: <em>Protected branches</em> +
+      <strong>Merge request approval rules</strong> (nombre d'approbations, approbateurs de code via
+      <code>CODEOWNERS</code>), <em>Push rules</em> (regex de message, signature GPG requise) et
+      <em>Pipelines must succeed</em>. On les gère dans l'UI ou, mieux, via Terraform
+      (<code>gitlab_branch_protection</code>) — on y reviendra au chapitre Infrastructure as Code.</p>
+    </div>
+  </div>
+
+  <p>Activer la signature des commits côté développeur&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">bash</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash"># Signature SSH (simple, réutilise votre clé existante)
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+git config --global commit.gpgsign true      # signe automatiquement chaque commit</code></pre>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Conventional Commits</h2>
+  <p>
+    Un message de commit libre est du texte perdu. La spécification
+    <a href="https://www.conventionalcommits.org" target="_blank" rel="noopener">Conventional&nbsp;Commits</a>
+    impose une structure <em>lisible par un humain et par une machine</em> — ce qui débloque le versioning
+    sémantique et le changelog automatiques.
+  </p>
+
+  <div class="commit-anatomy">
+    <span class="commit-anatomy__line"><span class="ca-type">feat</span><span class="ca-scope">(auth)</span><span class="ca-bang">!</span><span class="ca-colon">:</span> <span class="ca-desc">migre le login vers OAuth2</span></span>
+    <div class="ca-legend">
+      <div><code class="ca-type">feat</code><span><strong>type</strong> — nature du changement (voir le tableau).</span></div>
+      <div><code class="ca-scope">(auth)</code><span><strong>scope</strong> — zone concernée, optionnel (module, package).</span></div>
+      <div><code class="ca-bang">!</code><span><strong>breaking</strong> — signale une rupture de compatibilité (équivaut à un footer <code>BREAKING CHANGE:</code>).</span></div>
+      <div><code class="ca-desc">migre…</code><span><strong>description</strong> — impératif présent, concis, en minuscules.</span></div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Type</th><th>Quand l'utiliser</th><th>Impact SemVer</th></tr></thead>
+      <tbody>
+        <tr><td><code>feat</code></td><td>Nouvelle fonctionnalité</td><td><span class="pill pill--green">MINOR</span></td></tr>
+        <tr><td><code>fix</code></td><td>Correction de bug</td><td><span class="pill pill--amber">PATCH</span></td></tr>
+        <tr><td><code>feat!</code> / <code>BREAKING CHANGE</code></td><td>Rupture de compatibilité</td><td><span class="pill pill--red">MAJOR</span></td></tr>
+        <tr><td><code>docs</code></td><td>Documentation uniquement</td><td>—</td></tr>
+        <tr><td><code>refactor</code></td><td>Refonte sans changer le comportement</td><td>—</td></tr>
+        <tr><td><code>perf</code></td><td>Amélioration de performance</td><td><span class="pill pill--amber">PATCH</span></td></tr>
+        <tr><td><code>test</code></td><td>Ajout / correction de tests</td><td>—</td></tr>
+        <tr><td><code>build</code> · <code>ci</code></td><td>Build, dépendances, pipeline CI</td><td>—</td></tr>
+        <tr><td><code>chore</code></td><td>Tâche de maintenance diverse</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">bash</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash"># Simple
+git commit -m "fix(catalog): corrige le tri par prix décroissant"
+
+# Avec corps et footer (rupture de compatibilité)
+git commit -m "feat(api): passe les dates au format ISO-8601
+
+Uniformise toutes les réponses de l'API sur des timestamps UTC.
+
+BREAKING CHANGE: le champ created_at n'est plus un entier epoch
+mais une chaîne ISO-8601. Mettre à jour les clients."</code></pre>
+  </div>
+
+  <h3>Pourquoi ça compte pour le CI/CD</h3>
+  <ul>
+    <li><strong>Versioning automatique</strong> — un outil comme <code>semantic-release</code> lit les commits depuis le dernier tag et déduit la version&nbsp;: <code>fix</code> → patch, <code>feat</code> → minor, <code>BREAKING CHANGE</code> → major.</li>
+    <li><strong>Changelog généré</strong> — le <code>CHANGELOG.md</code> est produit et catégorisé (Features, Bug Fixes…) sans intervention.</li>
+    <li><strong>Déclencheurs CI ciblés</strong> — le pipeline peut réagir au type (ex. déployer sur <code>feat</code>/<code>fix</code>, ignorer <code>docs</code>).</li>
+    <li><strong>Historique lisible</strong> — <code>git log --oneline</code> se lit comme un journal de release.</li>
+  </ul>
+
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Automatiser la contrainte</div>
+      <p>Ne comptez pas sur la discipline seule&nbsp;: un hook <code>commit-msg</code> (via
+      <strong>commitlint</strong> + <strong>husky</strong>) rejette les messages non conformes <em>avant</em>
+      qu'ils n'entrent dans l'historique. La convention devient alors garantie, pas espérée.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo collaboration</div>
+      <ul>
+        <li><strong>Taille des PR</strong> — petites &amp; fréquentes. Une grosse PR = revue superficielle + conflits. Découper en incréments cohérents.</li>
+        <li><strong>Nommage des branches</strong> — <code>&lt;type&gt;/&lt;description-courte&gt;</code> ou avec l'ID du ticket&nbsp;: <code>feat/panier-promo</code>, <code>fix/PROJ-123-login-timeout</code>. Cohérent, en minuscules, avec des tirets.</li>
+        <li><strong>Rester synchronisé</strong> — rebaser régulièrement sa branche sur <code>main</code> pour éviter les gros conflits de fin de course.</li>
+        <li><strong>Ne jamais force-push</strong> sur une branche partagée&nbsp;; réserver <code>--force-with-lease</code> à ses propres branches.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Squash, merge commit ou rebase&nbsp;?</h3>
+  <p>Trois façons d'intégrer une branche, trois compromis sur l'historique&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Méthode</th><th>Historique obtenu</th><th>Idéal pour</th></tr></thead>
+      <tbody>
+        <tr><td>Squash and merge</td><td>1 commit propre par PR sur <code>main</code></td><td>Feature branches (par défaut recommandé)&nbsp;: <code>main</code> lisible, 1 PR = 1 ligne.</td></tr>
+        <tr><td>Merge commit (<code>--no-ff</code>)</td><td>Conserve tous les commits + un commit de merge</td><td>Tracer précisément l'intégration&nbsp;; classique en Git Flow pour les releases.</td></tr>
+        <tr><td>Rebase and merge</td><td>Historique 100&nbsp;% linéaire, sans commit de merge</td><td>Équipes qui veulent une ligne droite&nbsp;; suppose des commits déjà propres.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">
+    Recommandation pragmatique&nbsp;: <strong>squash-and-merge</strong> par défaut (un <code>main</code>
+    linéaire et lisible, où chaque commit correspond à une PR), combiné à <strong>required linear history</strong>
+    dans la protection de branche.
+  </p>
+
+</article>

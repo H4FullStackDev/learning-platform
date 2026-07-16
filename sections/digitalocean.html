@@ -1,0 +1,516 @@
+<article class="chapter" data-chapter="digitalocean">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">11</span>
+      <span class="chapter-kicker">Module DevOps</span>
+    </div>
+    <h1 class="chapter-title">Pratique : déploiement complet sur DigitalOcean</h1>
+    <p class="chapter-lead">On boucle la boucle. Une vraie application — frontend web, API backend Node.js,
+      PostgreSQL, et une app mobile sur la même API — déployée de bout en bout sur DigitalOcean, en
+      réutilisant chaque brique du module.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le cas concret.</strong> On assemble tout&nbsp;: Terraform provisionne DOKS + PostgreSQL + Registry
+    + Load Balancer&nbsp;; la CI build, teste, scanne et pousse l'image&nbsp;; le pattern GitOps (ArgoCD)
+    déploie&nbsp;; Prometheus/Grafana surveillent. Chaque étape renvoie au chapitre théorique correspondant.
+  </p>
+
+  <!-- ================================================================
+       A) ORGANIGRAMME
+       ================================================================ -->
+  <h2>A · Le parcours complet, du code à la prod</h2>
+  <p>L'organigramme chronologique — chaque étape est annotée du chapitre du module qui la couvre&nbsp;:</p>
+
+  <div class="flowchart">
+    <div class="fc-step">
+      <div class="fc-step__rail"><div class="fc-num" style="--c:#3b82f6">1</div><div class="fc-line"></div></div>
+      <div class="fc-card" style="--c:#3b82f6">
+        <div class="fc-head"><span class="fc-title">Le dev code &amp; push</span><span class="fc-chap">Chap. 2 · Git</span></div>
+        <p class="fc-desc">Développement sur une branche <code>feature/*</code>, commits conventionnels, puis <code>git push</code>.</p>
+      </div>
+    </div>
+    <div class="fc-step">
+      <div class="fc-step__rail"><div class="fc-num" style="--c:#3b82f6">2</div><div class="fc-line"></div></div>
+      <div class="fc-card" style="--c:#3b82f6">
+        <div class="fc-head"><span class="fc-title">Pull Request → review → merge sur main</span><span class="fc-chap">Chap. 2 · Git</span></div>
+        <p class="fc-desc">Revue de code, CI verte &amp; approbations requises (branch protection), puis squash-merge sur <code>main</code>.</p>
+      </div>
+    </div>
+    <div class="fc-step">
+      <div class="fc-step__rail"><div class="fc-num" style="--c:#ec4899">3</div><div class="fc-line"></div></div>
+      <div class="fc-card" style="--c:#ec4899">
+        <div class="fc-head"><span class="fc-title">Pipeline CI : lint → tests → build → scan Trivy</span><span class="fc-chap">Chap. 3 &amp; 9 · CI / Sécu</span></div>
+        <p class="fc-desc">GitHub Actions valide le code&nbsp;; l'image est scannée (CVE HIGH/CRITICAL → build cassé).</p>
+      </div>
+    </div>
+    <div class="fc-step">
+      <div class="fc-step__rail"><div class="fc-num" style="--c:#f59e0b">4</div><div class="fc-line"></div></div>
+      <div class="fc-card" style="--c:#f59e0b">
+        <div class="fc-head"><span class="fc-title">Build image Docker → push sur le Registry DO</span><span class="fc-chap">Chap. 4 · Docker</span></div>
+        <p class="fc-desc">Image multi-stage taguée par le SHA du commit, poussée sur le DigitalOcean Container Registry.</p>
+      </div>
+    </div>
+    <div class="fc-step">
+      <div class="fc-step__rail"><div class="fc-num" style="--c:#8b5cf6">5</div><div class="fc-line"></div></div>
+      <div class="fc-card" style="--c:#8b5cf6">
+        <div class="fc-head"><span class="fc-title">Mise à jour du repo GitOps (nouveau tag)</span><span class="fc-chap">Chap. 7 · GitOps</span></div>
+        <p class="fc-desc">La CI bump le tag d'image dans les <code>values</code> Helm du repo de config — <strong>pas de déploiement direct</strong>.</p>
+      </div>
+    </div>
+    <div class="fc-step">
+      <div class="fc-step__rail"><div class="fc-num" style="--c:#10b981">6</div><div class="fc-line"></div></div>
+      <div class="fc-card" style="--c:#10b981">
+        <div class="fc-head"><span class="fc-title">ArgoCD détecte &amp; synchronise sur DOKS</span><span class="fc-chap">Chap. 5 &amp; 7 · K8s / GitOps</span></div>
+        <p class="fc-desc">ArgoCD (pull) voit le commit et applique l'état désiré sur le cluster DigitalOcean Kubernetes.</p>
+      </div>
+    </div>
+    <div class="fc-step">
+      <div class="fc-step__rail"><div class="fc-num" style="--c:#10b981">7</div><div class="fc-line"></div></div>
+      <div class="fc-card" style="--c:#10b981">
+        <div class="fc-head"><span class="fc-title">Kubernetes : rolling update des pods</span><span class="fc-chap">Chap. 5 · K8s</span></div>
+        <p class="fc-desc">Remplacement progressif des pods (maxUnavailable: 0) → mise à jour sans coupure.</p>
+      </div>
+    </div>
+    <div class="fc-step">
+      <div class="fc-step__rail"><div class="fc-num" style="--c:#7c6bf9">8</div><div class="fc-line"></div></div>
+      <div class="fc-card" style="--c:#7c6bf9">
+        <div class="fc-head"><span class="fc-title">Requêtes → LB DO → API Gateway → services</span><span class="fc-chap">Chap. 9 · Sécurité</span></div>
+        <p class="fc-desc">Web &amp; mobile passent par le Load Balancer, l'API Gateway valide le token OAuth2/OIDC, puis route vers les services.</p>
+      </div>
+    </div>
+    <div class="fc-step">
+      <div class="fc-step__rail"><div class="fc-num" style="--c:#14b8a6">9</div><div class="fc-line"></div></div>
+      <div class="fc-card" style="--c:#14b8a6">
+        <div class="fc-head"><span class="fc-title">Monitoring en continu &amp; alertes</span><span class="fc-chap">Chap. 8 · Observabilité</span></div>
+        <p class="fc-desc">Prometheus scrape les métriques, Grafana affiche les golden signals, Alertmanager notifie en cas d'anomalie — et la boucle recommence.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       B) TERRAFORM
+       ================================================================ -->
+  <h2>B · L'infra DigitalOcean en Terraform</h2>
+  <p>Un seul <code>terraform apply</code> provisionne toute la fondation&nbsp;: VPC, cluster DOKS, PostgreSQL managée, Container Registry et Load Balancer.</p>
+
+  <h3>main.tf</h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">main.tf</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-hcl">terraform {
+  required_version = ">= 1.6"
+  required_providers {
+    digitalocean = {
+      source  = "digitalocean/digitalocean"
+      version = "~> 2.40"
+    }
+  }
+  # State distant sur DigitalOcean Spaces (compatible S3) — voir chap. 6
+  # backend "s3" { ... }
+}
+
+provider "digitalocean" {
+  token = var.do_token
+}
+
+# --- Réseau privé dédié ---
+resource "digitalocean_vpc" "main" {
+  name     = "${var.project}-${var.environment}-vpc"
+  region   = var.region
+  ip_range = "10.20.0.0/16"
+}
+
+# --- Cluster Kubernetes managé (DOKS) ---
+resource "digitalocean_kubernetes_cluster" "doks" {
+  name     = "${var.project}-${var.environment}"
+  region   = var.region
+  version  = var.k8s_version
+  vpc_uuid = digitalocean_vpc.main.id
+
+  node_pool {
+    name       = "worker-pool"
+    size       = var.node_size
+    auto_scale = true                 # autoscaling du pool
+    min_nodes  = var.node_count
+    max_nodes  = var.max_nodes
+  }
+}
+
+# --- Base de données PostgreSQL managée ---
+resource "digitalocean_database_cluster" "postgres" {
+  name                 = "${var.project}-${var.environment}-pg"
+  engine               = "pg"
+  version              = "16"
+  size                 = var.db_size
+  region               = var.region
+  node_count           = 1
+  private_network_uuid = digitalocean_vpc.main.id   # accessible en privé
+}
+
+# --- Pare-feu DB : n'autoriser que le cluster ---
+resource "digitalocean_database_firewall" "pg" {
+  cluster_id = digitalocean_database_cluster.postgres.id
+  rule {
+    type  = "k8s"
+    value = digitalocean_kubernetes_cluster.doks.id
+  }
+}
+
+# --- Container Registry privé ---
+resource "digitalocean_container_registry" "registry" {
+  name                   = var.registry_name
+  subscription_tier_slug = "basic"
+  region                 = var.region
+}
+
+# --- Load Balancer public (TLS) devant le cluster ---
+resource "digitalocean_loadbalancer" "public" {
+  name     = "${var.project}-${var.environment}-lb"
+  region   = var.region
+  vpc_uuid = digitalocean_vpc.main.id
+
+  forwarding_rule {
+    entry_port       = 443
+    entry_protocol   = "https"
+    target_port      = 30080          # NodePort de l'ingress controller
+    target_protocol  = "http"
+    certificate_name = var.tls_cert_name
+  }
+
+  healthcheck {
+    port     = 30080
+    protocol = "http"
+    path     = "/healthz"
+  }
+}</code></pre>
+  </div>
+
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">LB explicite vs Service type=LoadBalancer</div>
+      <p>Sur DOKS, un <code>Service</code> Kubernetes de type <code>LoadBalancer</code> provisionne automatiquement
+      un Load Balancer DO. On le déclare ici explicitement pour la clarté et pour le contrôler par Terraform&nbsp;;
+      en pratique, on gère souvent le LB via l'ingress controller + une annotation.</p>
+    </div>
+  </div>
+
+  <h3>variables.tf</h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">variables.tf</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-hcl">variable "do_token" {
+  description = "Token API DigitalOcean"
+  type        = string
+  sensitive   = true
+}
+
+variable "project" {
+  type    = string
+  default = "monapp"
+}
+
+variable "environment" {
+  type    = string
+  default = "prod"
+}
+
+variable "region" {
+  type    = string
+  default = "fra1"
+}
+
+variable "k8s_version" {
+  description = "Version de DOKS (doctl kubernetes options versions)"
+  type        = string
+  default     = "1.31.1-do.0"
+}
+
+variable "node_size" {
+  type    = string
+  default = "s-2vcpu-4gb"
+}
+
+variable "node_count" {
+  type    = number
+  default = 3
+}
+
+variable "max_nodes" {
+  type    = number
+  default = 6
+}
+
+variable "db_size" {
+  type    = string
+  default = "db-s-1vcpu-2gb"
+}
+
+variable "registry_name" {
+  type    = string
+  default = "monapp-registry"
+}
+
+variable "tls_cert_name" {
+  description = "Nom d'un certificat TLS déjà créé sur DigitalOcean"
+  type        = string
+}</code></pre>
+  </div>
+
+  <h3>outputs.tf</h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">outputs.tf</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-hcl">output "cluster_id" {
+  value = digitalocean_kubernetes_cluster.doks.id
+}
+
+output "kubeconfig" {
+  description = "Kubeconfig brut pour se connecter au cluster"
+  value       = digitalocean_kubernetes_cluster.doks.kube_config[0].raw_config
+  sensitive   = true
+}
+
+output "registry_endpoint" {
+  value = digitalocean_container_registry.registry.endpoint
+}
+
+output "database_uri" {
+  value     = digitalocean_database_cluster.postgres.uri
+  sensitive = true
+}
+
+output "load_balancer_ip" {
+  description = "IP publique à pointer par le DNS"
+  value       = digitalocean_loadbalancer.public.ip
+}</code></pre>
+  </div>
+
+  <h3>terraform.tfvars.example</h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">terraform.tfvars.example</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-hcl"># Copier en terraform.tfvars et NE JAMAIS committer les vraies valeurs.
+# Mieux : exporter le token via  export TF_VAR_do_token="dop_v1_..."
+do_token      = "dop_v1_xxxxxxxxxxxxxxxx"
+project       = "monapp"
+environment   = "prod"
+region        = "fra1"
+k8s_version   = "1.31.1-do.0"
+node_size     = "s-2vcpu-4gb"
+node_count    = 3
+max_nodes     = 6
+db_size       = "db-s-1vcpu-2gb"
+registry_name = "monapp-registry"
+tls_cert_name = "monapp-cert"</code></pre>
+  </div>
+
+  <!-- ================================================================
+       C) ARGOCD / GITOPS
+       ================================================================ -->
+  <h2>C · GitOps avec ArgoCD sur le cluster</h2>
+  <h3>Installation d'ArgoCD sur DOKS</h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">bash</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash"># Récupérer le kubeconfig du cluster fraîchement provisionné
+terraform output -raw kubeconfig > kubeconfig.yaml
+export KUBECONFIG=$PWD/kubeconfig.yaml
+# (ou) doctl kubernetes cluster kubeconfig save monapp-prod
+
+# Installer ArgoCD
+kubectl create namespace argocd
+kubectl apply -n argocd \
+  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Mot de passe admin initial
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d
+
+# Accéder à l'UI en local
+kubectl port-forward svc/argocd-server -n argocd 8080:443</code></pre>
+  </div>
+
+  <h3>L'Application ArgoCD</h3>
+  <p>Elle pointe vers le repo GitOps et le chart du backend, avec les <code>values</code> de prod&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">argocd/applications/backend-prod.yaml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: backend-prod
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/acme/monapp-gitops.git
+    targetRevision: main
+    path: charts/backend
+    helm:
+      valueFiles:
+        - values-prod.yaml          # values spécifiques à la prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true                # corrige tout drift
+    syncOptions:
+      - CreateNamespace=true</code></pre>
+  </div>
+
+  <h3>Structure du repo GitOps</h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">monapp-gitops/</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">monapp-gitops/
+├── charts/
+│   ├── frontend/                 # chart Helm du frontend (SPA)
+│   │   ├── Chart.yaml
+│   │   ├── templates/
+│   │   ├── values.yaml           # valeurs communes
+│   │   ├── values-dev.yaml
+│   │   ├── values-staging.yaml
+│   │   └── values-prod.yaml
+│   └── backend/                  # chart Helm de l'API
+│       ├── Chart.yaml
+│       ├── templates/
+│       ├── values.yaml
+│       ├── values-dev.yaml
+│       ├── values-staging.yaml
+│       └── values-prod.yaml
+└── argocd/
+    └── applications/             # une Application par (service × env)
+        ├── frontend-dev.yaml
+        ├── frontend-prod.yaml
+        ├── backend-dev.yaml
+        └── backend-prod.yaml</code></pre>
+  </div>
+
+  <!-- ================================================================
+       D) PIPELINE CI/CD
+       ================================================================ -->
+  <h2>D · Le pipeline CI/CD (build → GitOps)</h2>
+  <p>Le workflow va du build jusqu'au <em>commit dans le repo GitOps</em>&nbsp;: il ne touche jamais le cluster directement — ArgoCD s'en charge (pattern GitOps du chapitre 7).</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">.github/workflows/deploy.yml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">name: build-and-deploy
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  REGISTRY: registry.digitalocean.com/monapp-registry
+  IMAGE: backend
+
+jobs:
+  ship:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- 1. Qualité (chap. 3) ---
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+
+      # --- 2. Build de l'image (chap. 4) ---
+      - name: Build image
+        run: docker build -t "$REGISTRY/$IMAGE:${{ github.sha }}" .
+
+      # --- 3. Scan de sécurité (chap. 9) ---
+      - name: Scan Trivy
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: "${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.sha }}"
+          severity: HIGH,CRITICAL
+          exit-code: '1'                 # casse le build si CVE critique
+
+      # --- 4. Push vers le registry DigitalOcean (chap. 4) ---
+      - name: Login DigitalOcean
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+      - run: doctl registry login
+      - run: docker push "$REGISTRY/$IMAGE:${{ github.sha }}"
+
+      # --- 5. Mise à jour du repo GitOps (chap. 7) : PAS de kubectl apply ---
+      - name: Checkout du repo GitOps
+        uses: actions/checkout@v4
+        with:
+          repository: acme/monapp-gitops
+          token: ${{ secrets.GITOPS_PAT }}   # token avec droits d'écriture
+          path: gitops
+
+      - name: Bump du tag d'image
+        run: |
+          cd gitops
+          yq -i '.image.tag = "${{ github.sha }}"' charts/backend/values-prod.yaml
+          git config user.name  "ci-bot"
+          git config user.email "ci@acme.dev"
+          git commit -am "chore(deploy): backend ${{ github.sha }}"
+          git push
+      # -> ArgoCD détecte ce commit et synchronise le cluster automatiquement.</code></pre>
+  </div>
+
+  <!-- ================================================================
+       E) CHECKLIST
+       ================================================================ -->
+  <h2>E · Checklist de mise en prod</h2>
+  <p>Avant d'ouvrir le trafic — à cocher (les cases sont interactives)&nbsp;:</p>
+
+  <div class="check-group__title">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+    Sécurité
+  </div>
+  <div class="checklist">
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">Aucun secret en clair — Vault / secrets K8s chiffrés, scan gitleaks en CI</span><span class="check__chap">Chap. 9 · DevSecOps</span></span></label>
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">Auth OAuth2/OIDC + PKCE sur l'API Gateway, JWT validés (iss/aud/exp)</span><span class="check__chap">Chap. 9 · DevSecOps</span></span></label>
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">Images scannées (Trivy), tag par SHA — jamais <code>latest</code> en prod</span><span class="check__chap">Chap. 4 &amp; 9</span></span></label>
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">Branch protection + revue obligatoire sur <code>main</code></span><span class="check__chap">Chap. 2 · Git</span></span></label>
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">TLS/HTTPS partout, rate limiting actif, pare-feu DB restreint au cluster</span><span class="check__chap">Chap. 6 &amp; 9</span></span></label>
+  </div>
+
+  <div class="check-group__title">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    Observabilité
+  </div>
+  <div class="checklist">
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">Prometheus scrape le cluster, dashboards Grafana des 4 golden signals</span><span class="check__chap">Chap. 8 · Monitoring</span></span></label>
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">Alertes actionnables + runbooks, routées par Alertmanager</span><span class="check__chap">Chap. 8 · Monitoring</span></span></label>
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">Logs centralisés (EFK/Loki) et traces distribuées (OpenTelemetry)</span><span class="check__chap">Chap. 8 · Monitoring</span></span></label>
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">SLO définis + error budget suivi</span><span class="check__chap">Chap. 8 · Monitoring</span></span></label>
+  </div>
+
+  <div class="check-group__title">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    Fiabilité &amp; bonnes pratiques
+  </div>
+  <div class="checklist">
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">Resource requests/limits + liveness/readiness probes sur tous les pods</span><span class="check__chap">Chap. 5 · Kubernetes</span></span></label>
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">Stratégie de déploiement choisie (rolling / canary) et rollback testé (<code>git revert</code>)</span><span class="check__chap">Chap. 5 &amp; 7</span></span></label>
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">State Terraform distant &amp; verrouillé, healthchecks sur le Load Balancer</span><span class="check__chap">Chap. 6 · Terraform</span></span></label>
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">Namespaces séparés par environnement (dev/staging/prod)</span><span class="check__chap">Chap. 5 · Kubernetes</span></span></label>
+    <label class="check"><input type="checkbox"><span class="check__body"><span class="check__title">Sauvegardes automatiques de PostgreSQL activées &amp; restauration testée</span><span class="check__chap">Chap. 6 · Terraform</span></span></label>
+  </div>
+
+  <!-- ================================================================ -->
+  <div class="callout callout--tip" style="margin-top:32px">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">La boucle est bouclée</div>
+      <p>Du <code>git push</code> jusqu'aux dashboards de production, chaque maillon du module s'emboîte&nbsp;:
+      <strong>Git</strong> déclenche la <strong>CI</strong>, qui produit une <strong>image Docker</strong> scannée,
+      poussée sur le registry&nbsp;; le <strong>GitOps</strong> (ArgoCD) déploie sur <strong>Kubernetes</strong>
+      provisionné par <strong>Terraform</strong>, sécurisé par l'<strong>API Gateway</strong> et
+      <strong>OIDC</strong>, observé par <strong>Prometheus/Grafana</strong>. C'est ça, le DevOps&nbsp;: une chaîne
+      automatisée, mesurée et réversible — de l'idée à la production.</p>
+    </div>
+  </div>
+
+  <p class="muted" style="text-align:center; margin-top:24px">🎉 Le parcours principal est bouclé — de la culture à la mise en production sur un cloud réel. Envie d'aller plus loin&nbsp;? Le <strong>chapitre bonus</strong> traite de la <strong>scalabilité &amp; la montée en charge</strong>.</p>
+
+</article>

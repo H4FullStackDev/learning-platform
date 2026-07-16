@@ -1,0 +1,343 @@
+<article class="chapter" data-chapter="monitoring">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">08</span>
+      <span class="chapter-kicker">Module DevOps</span>
+    </div>
+    <h1 class="chapter-title">Monitoring &amp; Observabilité</h1>
+    <p class="chapter-lead">Voir ce qui se passe en production : les 3 piliers (logs, métriques, traces),
+      Prometheus &amp; Grafana, la centralisation des logs, le tracing distribué et un alerting
+      <em>actionnable</em>.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Monitoring vs observabilité.</strong> Le <em>monitoring</em> répond à des questions <strong>connues
+    d'avance</strong> («&nbsp;le CPU dépasse-t-il 80&nbsp;%&nbsp;?&nbsp;») via des dashboards et des alertes.
+    L'<em>observabilité</em>, c'est la capacité à poser des questions <strong>nouvelles</strong> sur l'état interne
+    du système à partir de ses sorties — indispensable pour déboguer l'inconnu dans un système distribué.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Les 3 piliers de l'observabilité</h2>
+  <p>Trois types de télémétrie, complémentaires. On a besoin des trois pour comprendre un système&nbsp;:</p>
+  <div class="grid-3">
+    <div class="spec-card" style="border-top:3px solid #2a78d6">
+      <h4>📜 Logs</h4>
+      <p><strong>Quoi&nbsp;:</strong> événements horodatés et discrets.<br>
+      <strong>Répond à&nbsp;:</strong> «&nbsp;que s'est-il passé exactement&nbsp;?&nbsp;»<br>
+      <strong>Exemple&nbsp;:</strong> <code>ERROR paiement refusé user=42</code></p>
+    </div>
+    <div class="spec-card" style="border-top:3px solid #1baf7a">
+      <h4>📈 Métriques</h4>
+      <p><strong>Quoi&nbsp;:</strong> valeurs numériques agrégées dans le temps.<br>
+      <strong>Répond à&nbsp;:</strong> «&nbsp;dans quel état est le système&nbsp;?&nbsp;»<br>
+      <strong>Exemple&nbsp;:</strong> latence p95, req/s, % CPU</p>
+    </div>
+    <div class="spec-card" style="border-top:3px solid #eda100">
+      <h4>🔗 Traces</h4>
+      <p><strong>Quoi&nbsp;:</strong> le parcours d'une requête à travers les services.<br>
+      <strong>Répond à&nbsp;:</strong> «&nbsp;où le temps est-il passé&nbsp;?&nbsp;»<br>
+      <strong>Exemple&nbsp;:</strong> 400&nbsp;ms dont 260&nbsp;ms en base</p>
+    </div>
+  </div>
+  <p class="muted">Les métriques <em>alertent</em> qu'un problème existe, les traces <em>localisent</em> le service fautif, les logs <em>expliquent</em> la cause exacte.</p>
+
+  <!-- ============================================================= -->
+  <h2>Prometheus</h2>
+  <p>
+    <strong>Prometheus</strong> est le standard open-source de collecte de métriques. Son modèle est
+    <strong>pull</strong>&nbsp;: il va <em>scraper</em> (récupérer) périodiquement un endpoint HTTP
+    <code>/metrics</code> exposé par chaque cible. Les services l'exposent nativement ou via un
+    <strong>exporter</strong> (ex. <code>node_exporter</code> pour les métriques système).
+  </p>
+
+  <div class="arch">
+    <div class="arch__node" style="--c:#2a78d6">Targets<small>/metrics · exporters</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>scrape (pull)</div>
+    <div class="arch__node" style="--c:#eb6834">Prometheus<small>TSDB + PromQL</small></div>
+    <div class="arch__branch">
+      <div class="arch__node" style="--c:#d03b3b">Alertmanager<small>alertes</small></div>
+      <div class="arch__node" style="--c:#1baf7a">Grafana<small>dashboards</small></div>
+    </div>
+  </div>
+
+  <p>La configuration décrit les cibles à scraper et les règles à évaluer&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">prometheus.yml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">global:
+  scrape_interval: 15s          # fréquence de collecte par défaut
+  evaluation_interval: 15s      # fréquence d'évaluation des règles
+
+rule_files:
+  - "alerts/*.yml"              # fichiers de règles d'alerte
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: "prometheus"      # Prometheus se scrape lui-même
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "node"            # métriques système via node_exporter
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  - job_name: "app"             # métriques applicatives
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["web:3000"]
+
+  - job_name: "kubernetes-pods" # découverte dynamique dans un cluster
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:            # ne garde que les pods annotés à scraper
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: "true"</code></pre>
+  </div>
+
+  <h3>PromQL en un coup d'œil</h3>
+  <p>PromQL interroge les séries temporelles. Trois requêtes qui reviennent tout le temps&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">PromQL</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash"># Débit : requêtes par seconde, moyennées sur 5 min
+rate(http_requests_total[5m])
+
+# Latence p95, à partir d'un histogramme
+histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+
+# Taux d'erreur : part des 5xx dans le trafic total
+sum(rate(http_requests_total{status=~"5.."}[5m]))
+  / sum(rate(http_requests_total[5m]))</code></pre>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Grafana &amp; les 4 golden signals</h2>
+  <p>
+    <strong>Grafana</strong> visualise ces métriques (et d'autres sources) sous forme de dashboards.
+    Un dashboard de service bien conçu affiche les <strong>4 golden signals</strong> (Google SRE)&nbsp;:
+    <strong>latence</strong>, <strong>trafic</strong>, <strong>erreurs</strong> et <strong>saturation</strong>.
+  </p>
+
+  <div class="dash" role="img" aria-label="Maquette de dashboard Grafana montrant les 4 golden signals : latence, débit, taux d'erreur et saturation CPU">
+    <div class="dash__bar">
+      <span class="dash__title">web · production</span>
+      <span class="dash__live">live</span>
+      <span class="dash__range">last 1h</span>
+    </div>
+    <div class="dash__grid">
+      <!-- Latence -->
+      <div class="dash-panel">
+        <div class="dash-panel__label">Latence p95</div>
+        <div class="dash-panel__value">142<small> ms</small></div>
+        <div class="dash-panel__delta dash-panel__delta--good">▼ 8&nbsp;% vs 1h</div>
+        <div class="dash-spark">
+          <svg viewBox="0 0 120 36" preserveAspectRatio="none">
+            <polyline points="0,24 12,20 24,23 36,17 48,19 60,14 72,16 84,11 96,14 108,9 120,12" fill="none" stroke="var(--viz-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <!-- Trafic -->
+      <div class="dash-panel">
+        <div class="dash-panel__label">Débit (trafic)</div>
+        <div class="dash-panel__value">1.24k<small> req/s</small></div>
+        <div class="dash-panel__delta dash-panel__delta--good">▲ 5&nbsp;% vs 1h</div>
+        <div class="dash-spark">
+          <svg viewBox="0 0 120 36" preserveAspectRatio="none">
+            <g fill="var(--viz-aqua)">
+              <rect x="4"  y="18" width="7" height="18" rx="1.5"/>
+              <rect x="15" y="13" width="7" height="23" rx="1.5"/>
+              <rect x="26" y="20" width="7" height="16" rx="1.5"/>
+              <rect x="37" y="11" width="7" height="25" rx="1.5"/>
+              <rect x="48" y="16" width="7" height="20" rx="1.5"/>
+              <rect x="59" y="9"  width="7" height="27" rx="1.5"/>
+              <rect x="70" y="14" width="7" height="22" rx="1.5"/>
+              <rect x="81" y="8"  width="7" height="28" rx="1.5"/>
+              <rect x="92" y="12" width="7" height="24" rx="1.5"/>
+              <rect x="103" y="7" width="7" height="29" rx="1.5"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+      <!-- Erreurs -->
+      <div class="dash-panel">
+        <div class="dash-panel__label">Taux d'erreur</div>
+        <div class="dash-panel__value">0.42<small> %</small></div>
+        <div class="dash-panel__delta dash-panel__delta--good"><span class="status-dot" style="background:var(--viz-good)"></span>sous le seuil (1&nbsp;%)</div>
+        <div class="dash-spark">
+          <svg viewBox="0 0 120 36" preserveAspectRatio="none">
+            <polyline points="0,31 15,30 30,32 45,29 60,31 75,28 90,30 105,29 120,30" fill="none" stroke="var(--viz-good)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <!-- Saturation -->
+      <div class="dash-panel">
+        <div class="dash-panel__label">Saturation CPU</div>
+        <div class="gauge-wrap">
+          <svg viewBox="0 0 120 62" aria-hidden="true">
+            <path d="M12 56 A48 48 0 0 1 108 56" fill="none" stroke="var(--viz-grid)" stroke-width="11" stroke-linecap="round"/>
+            <path d="M12 56 A48 48 0 0 1 108 56" fill="none" stroke="var(--viz-warn)" stroke-width="11" stroke-linecap="round" stroke-dasharray="102 151"/>
+          </svg>
+          <div>
+            <div class="dash-panel__value">68<small> %</small></div>
+            <div class="dash-panel__delta dash-panel__delta--warn">approche du seuil 80&nbsp;%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="muted">Maquette conceptuelle. Chaque signal a sa lecture&nbsp;: <strong>latence</strong> (temps de réponse), <strong>trafic</strong> (charge), <strong>erreurs</strong> (taux d'échec), <strong>saturation</strong> (proximité de la limite des ressources).</p>
+
+  <!-- ============================================================= -->
+  <h2>Centralisation des logs — ELK / EFK</h2>
+  <p>
+    Dans un système distribué, lire les logs machine par machine est impossible. On les <strong>centralise</strong>
+    dans une stack dédiée. Deux variantes très proches&nbsp;: <strong>ELK</strong>
+    (Elasticsearch · Logstash · Kibana) et <strong>EFK</strong>, où <strong>Fluentd</strong>/Fluent Bit
+    remplace Logstash comme collecteur (plus léger, standard en Kubernetes).
+  </p>
+
+  <div class="arch">
+    <div class="arch__node" style="--c:#6366f1">Apps / pods<small>émettent des logs</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#eb6834">Fluentd / Logstash<small>collecte &amp; parse</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#1baf7a">Elasticsearch<small>stocke &amp; indexe</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#2a78d6">Kibana<small>recherche &amp; visualise</small></div>
+  </div>
+  <ul>
+    <li><strong>Collecteur</strong> (Fluentd/Logstash) — récupère les logs, les parse, les enrichit (labels, JSON) et les route.</li>
+    <li><strong>Elasticsearch</strong> — moteur de recherche/stockage qui indexe pour des requêtes plein-texte rapides.</li>
+    <li><strong>Kibana</strong> — l'UI de recherche, filtrage et visualisation des logs.</li>
+  </ul>
+  <p class="muted">Alternatives modernes plus économiques&nbsp;: <strong>Grafana Loki</strong> (indexe seulement les labels), ou des solutions SaaS (Datadog, OpenSearch).</p>
+
+  <!-- ============================================================= -->
+  <h2>Tracing distribué</h2>
+  <p>
+    Quand une requête traverse 10 microservices, comment savoir <em>où</em> le temps est passé&nbsp;? Le
+    <strong>tracing distribué</strong> attribue un <strong>trace&nbsp;ID</strong> unique à la requête, propagé de
+    service en service. Chaque étape crée un <strong>span</strong> (avec un <em>span&nbsp;ID</em> et le <em>parent
+    span&nbsp;ID</em>), ce qui reconstitue l'arbre d'appels sous forme de <strong>cascade</strong>&nbsp;:
+  </p>
+
+  <div class="figure">
+    <div class="figure__title">Cascade d'une trace — <code>trace_id: 7f3a…c1</code> · total 400&nbsp;ms</div>
+    <div class="gantt">
+      <div class="gantt__row"><span class="gantt__name">frontend</span><div class="gantt__track"><div class="gantt__bar" style="left:0%;width:100%;background:#2a78d6">GET /order · 400ms</div></div></div>
+      <div class="gantt__row"><span class="gantt__name">api-gateway</span><div class="gantt__track"><div class="gantt__bar" style="left:5%;width:90%;background:#1baf7a">360ms</div></div></div>
+      <div class="gantt__row"><span class="gantt__name">auth-svc</span><div class="gantt__track"><div class="gantt__bar" style="left:7%;width:15%;background:#4a3aa7">auth</div></div></div>
+      <div class="gantt__row"><span class="gantt__name">order-svc</span><div class="gantt__track"><div class="gantt__bar" style="left:25%;width:65%;background:#2a78d6">260ms</div></div></div>
+      <div class="gantt__row"><span class="gantt__name">db (SQL)</span><div class="gantt__track"><div class="gantt__bar" style="left:32%;width:33%;background:#eda100">query 130ms</div></div></div>
+      <div class="gantt__row"><span class="gantt__name">cache</span><div class="gantt__track"><div class="gantt__bar" style="left:67%;width:8%;background:#1baf7a">redis</div></div></div>
+      <div class="gantt__row"><span class="gantt__name">payment</span><div class="gantt__track"><div class="gantt__bar" style="left:76%;width:16%;background:#eb6834">55ms</div></div></div>
+    </div>
+    <div class="figure__caption">On voit d'un coup d'œil que la requête SQL (130&nbsp;ms) domine le coût — la cible d'optimisation.</div>
+  </div>
+
+  <p>
+    Côté outillage&nbsp;: <strong>OpenTelemetry (OTel)</strong> est le standard d'instrumentation
+    (SDK + collector, vendor-neutral) pour produire traces, métriques et logs&nbsp;; <strong>Jaeger</strong> (ou
+    Tempo, Zipkin) stocke et visualise ces traces. On instrumente une fois avec OTel, on exporte vers le backend
+    de son choix.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Alerting</h2>
+  <p>
+    Une métrique n'a de valeur que si un dépassement <strong>prévient quelqu'un</strong>. Prometheus évalue des
+    <strong>règles d'alerte</strong>&nbsp;; l'<strong>Alertmanager</strong> déduplique, groupe et route les
+    notifications (Slack, PagerDuty, e-mail).
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">alerts/slo.yml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">groups:
+  - name: slo-web
+    rules:
+      - alert: HighErrorRate
+        # Condition : plus de 5% de 5xx sur les 5 dernières minutes
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(http_requests_total[5m])) > 0.05
+        for: 10m                     # doit persister 10 min -> évite les faux positifs
+        labels:
+          severity: critical         # utilisé par l'Alertmanager pour le routage
+        annotations:
+          summary: "Taux d'erreur élevé sur {{ $labels.job }}"
+          description: "Plus de 5% de réponses 5xx depuis 10 minutes."
+          runbook_url: "https://wiki.exemple.com/runbooks/high-error-rate"</code></pre>
+  </div>
+
+  <div class="accordion">
+    <button class="accordion__trigger" type="button">Routage des alertes (alertmanager.yml)</button>
+    <div class="accordion__panel"><div class="accordion__panel-inner">
+      <div class="code-block">
+        <div class="code-block__head"><span class="lang">alertmanager.yml</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">route:
+  receiver: "slack-warn"
+  group_by: ["alertname", "job"]     # regroupe les alertes similaires
+  group_wait: 30s
+  repeat_interval: 4h                # n'insiste pas trop -> anti-fatigue
+  routes:
+    - matchers: [ 'severity="critical"' ]
+      receiver: "pagerduty"          # le critique réveille l'astreinte
+
+receivers:
+  - name: "slack-warn"
+    slack_configs:
+      - channel: "#alertes"
+  - name: "pagerduty"
+    pagerduty_configs:
+      - routing_key: "${PAGERDUTY_KEY}"</code></pre>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">SLI / SLO / SLA en 30 secondes</div>
+      <div class="table-wrap" style="margin-top:10px">
+        <table>
+          <thead><tr><th>Terme</th><th>Définition</th><th>Exemple</th></tr></thead>
+          <tbody>
+            <tr><td><strong>SLI</strong> <span class="muted">Indicator</span></td><td>Une mesure quantitative du niveau de service</td><td>% de requêtes servies en &lt; 200&nbsp;ms</td></tr>
+            <tr><td><strong>SLO</strong> <span class="muted">Objective</span></td><td>La cible interne visée sur un SLI</td><td>99,9&nbsp;% &lt; 200&nbsp;ms sur 30&nbsp;jours</td></tr>
+            <tr><td><strong>SLA</strong> <span class="muted">Agreement</span></td><td>L'engagement contractuel (avec pénalités)</td><td>99,5&nbsp;% garanti, sinon avoir client</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:10px">Le complément du SLO est l'<strong>error budget</strong>&nbsp;: un SLO à 99,9&nbsp;% autorise 0,1&nbsp;% d'indisponibilité. Tant qu'il reste du budget, on livre&nbsp;; s'il est épuisé, on gèle les features pour se concentrer sur la fiabilité.</p>
+    </div>
+  </div>
+
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo observabilité</div>
+      <ul>
+        <li><strong>Alerter sur les symptômes, pas les causes</strong> — on alerte sur ce que l'utilisateur subit (SLO : latence, erreurs), pas sur chaque pic CPU. Chaque alerte doit être <strong>actionnable</strong> et pointer un <em>runbook</em>.</li>
+        <li><strong>Combattre la fatigue d'alerte</strong> — trop d'alertes = plus aucune n'est lue. Grouper, dédupliquer, régler les seuils, supprimer les alertes non-actionnables. Une alerte qui se déclenche sans qu'on agisse doit être corrigée ou supprimée.</li>
+        <li><strong>Des dashboards par audience</strong> — les <em>devs</em> veulent latence/erreurs/traces&nbsp;; le <em>business</em> veut inscriptions, chiffre d'affaires, conversion. Un même dashboard pour tous ne sert bien personne.</li>
+        <li><strong>Instrumenter dès le code</strong> — métriques et traces (OpenTelemetry) font partie du définition de «&nbsp;terminé&nbsp;», pas d'un ajout après incident.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    On sait livrer, déployer et observer. Reste à sécuriser l'ensemble&nbsp;: c'est l'objet du chapitre
+    <strong>Sécurité DevSecOps</strong> (API Gateway, OAuth2, OIDC).
+  </p>
+
+</article>

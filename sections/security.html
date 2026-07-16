@@ -1,0 +1,448 @@
+<article class="chapter" data-chapter="security">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">09</span>
+      <span class="chapter-kicker">Module DevOps</span>
+    </div>
+    <h1 class="chapter-title">Sécurité DevSecOps</h1>
+    <p class="chapter-lead">Intégrer la sécurité tout au long de la chaîne — « shift left ». API Gateway,
+      OAuth 2.0 et OpenID Connect (avec diagrammes de séquence), gestion des secrets et scan de
+      vulnérabilités dans le pipeline.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>DevSecOps</strong>, c'est déplacer la sécurité <em>vers la gauche</em> (shift-left)&nbsp;: au lieu
+    d'un audit final, on l'intègre à chaque étape — code, dépendances, images, déploiement, runtime. Ce
+    chapitre couvre le contrôle du trafic (API Gateway), l'identité (OAuth2/OIDC), les secrets et l'analyse
+    automatisée des vulnérabilités.
+  </p>
+
+  <!-- ================================================================
+       A) API GATEWAY
+       ================================================================ -->
+  <h2>A · API Gateway</h2>
+  <p>
+    Un <strong>API Gateway</strong> est le <strong>point d'entrée unique</strong> devant un ensemble de
+    services. Il <strong>découple les clients des services</strong>&nbsp;: le client ne parle qu'à la gateway,
+    qui route, sécurise et transforme, pendant que l'architecture interne peut évoluer librement.
+  </p>
+
+  <div class="arch">
+    <div class="arch__node arch__node--ext">📱 Clients<small>web · mobile · partenaires</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#7c6bf9">API Gateway<small>point d'entrée unique</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__branch">
+      <div class="arch__node" style="--c:#6366f1">service auth</div>
+      <div class="arch__node" style="--c:#10b981">service commandes</div>
+      <div class="arch__node" style="--c:#eb6834">service paiement</div>
+    </div>
+  </div>
+
+  <h3>Fonctionnalités clés</h3>
+  <ul>
+    <li><strong>Routing</strong> — dirige chaque requête vers le bon service selon le chemin/host.</li>
+    <li><strong>Rate limiting</strong> — limite le débit par client pour se protéger des abus et du déni de service.</li>
+    <li><strong>Authentification centralisée</strong> — valide les tokens (JWT/OAuth) une fois, en amont, plutôt que dans chaque service.</li>
+    <li><strong>Transformation</strong> — réécrit requêtes/réponses (headers, format, versions d'API).</li>
+    <li><strong>Load balancing</strong> — répartit la charge sur les instances d'un service.</li>
+  </ul>
+
+  <h3>Kong vs AWS API Gateway vs NGINX</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Critère</th><th>Kong</th><th>AWS API Gateway</th><th>NGINX</th></tr></thead>
+      <tbody>
+        <tr><td>Type</td><td>Gateway dédiée (OSS + entreprise)</td><td>Service 100&nbsp;% managé</td><td>Reverse proxy / gateway</td></tr>
+        <tr><td>Déploiement</td><td>Self-hosted ou cloud</td><td>Managé (serverless)</td><td>Self-hosted</td></tr>
+        <tr><td>Extensibilité</td><td>Riche écosystème de plugins</td><td>Intégrations AWS (Lambda, IAM, WAF)</td><td>Modules / OpenResty (Lua)</td></tr>
+        <tr><td>Rate limiting</td><td>Plugin natif</td><td>Natif (usage plans)</td><td><code>limit_req</code> (manuel)</td></tr>
+        <tr><td>Idéal pour</td><td>Multi-cloud, extensible</td><td>Écosystème AWS, serverless</td><td>Simplicité, perf, déjà en place</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Rate limiting — exemples commentés</h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">nginx.conf</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-nginx"># Zone de limitation : 10 requêtes/s par IP, 10 Mo de mémoire d'état
+limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+
+server {
+    listen 80;
+
+    location /api/ {
+        # burst=20 : tolère un pic de 20 req ; nodelay : pas de mise en file
+        limit_req zone=api burst=20 nodelay;
+        limit_req_status 429;               # renvoie 429 Too Many Requests
+
+        proxy_pass http://backend;
+        proxy_set_header Authorization $http_authorization;
+    }
+}</code></pre>
+  </div>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">kong.yml (déclaratif)</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-yaml">services:
+  - name: api
+    url: http://backend:3000
+    routes:
+      - name: api-route
+        paths: ["/api"]
+    plugins:
+      - name: rate-limiting       # plugin natif de limitation
+        config:
+          minute: 600             # 600 requêtes/minute par consommateur
+          policy: local
+      - name: jwt                 # validation centralisée des tokens JWT</code></pre>
+  </div>
+
+  <!-- ================================================================
+       B) OAUTH 2.0
+       ================================================================ -->
+  <h2>B · OAuth 2.0</h2>
+  <p>
+    OAuth 2.0 est un protocole d'<strong>autorisation déléguée</strong>&nbsp;: il permet à une application
+    d'accéder à des ressources <em>au nom d'un utilisateur</em>, sans jamais manipuler son mot de passe.
+  </p>
+
+  <h3>Les 4 acteurs</h3>
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card"><h4>👤 Resource Owner</h4><p>L'<strong>utilisateur</strong> qui possède les données et donne (ou refuse) son consentement.</p></div>
+        <div class="spec-card"><h4>🖥️ Client</h4><p>L'<strong>application</strong> qui veut accéder aux ressources au nom de l'utilisateur.</p></div>
+        <div class="spec-card"><h4>🔐 Authorization Server</h4><p>Émet les tokens après authentification &amp; consentement (ex. Keycloak, Auth0).</p></div>
+        <div class="spec-card"><h4>📦 Resource Server</h4><p>L'<strong>API</strong> qui héberge les ressources et exige un access token valide.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Authorization Code Flow</h3>
+  <p>Le flow le plus courant pour les applications web avec backend. L'utilisateur s'authentifie chez l'Authorization Server&nbsp;; le client récupère un <em>code</em> temporaire qu'il échange (côté serveur, avec son secret) contre un token.</p>
+  <div class="seqd" style="--cols:4">
+    <div class="seqd__scroll">
+      <div class="seqd__head">
+        <div class="seqd__actor">👤 User</div>
+        <div class="seqd__actor">🖥️ Client</div>
+        <div class="seqd__actor">🔐 Auth Server</div>
+        <div class="seqd__actor">📦 Resource</div>
+      </div>
+      <div class="seqd__flow">
+        <div class="seqd__lanes"><i></i><i></i><i></i><i></i></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:1/3"><span class="seqd__label"><b>1</b> · « Se connecter »</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:2/4"><span class="seqd__label"><b>2</b> · redirige vers /authorize</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--rtl" style="grid-column:1/4"><span class="seqd__label"><b>3</b> · page de login &amp; consentement</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:1/4"><span class="seqd__label"><b>4</b> · s'authentifie &amp; consent</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--rtl seqd__msg--dashed" style="grid-column:2/4"><span class="seqd__label"><b>5</b> · redirige avec ?code=…</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:2/4"><span class="seqd__label"><b>6</b> · échange code + client_secret</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--rtl seqd__msg--res seqd__msg--dashed" style="grid-column:2/4"><span class="seqd__label"><b>7</b> · access_token (+ refresh)</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:2/5"><span class="seqd__label"><b>8</b> · GET /data + Bearer token</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--rtl seqd__msg--res seqd__msg--dashed" style="grid-column:2/5"><span class="seqd__label"><b>9</b> · données protégées</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Authorization Code + PKCE <span class="pill pill--green">recommandé</span></h3>
+  <p>
+    <strong>PKCE</strong> (Proof Key for Code Exchange) sécurise le flow pour les clients qui <em>ne peuvent pas
+    garder un secret</em> (SPA, mobile). Le client génère un <code>code_verifier</code> aléatoire et envoie son
+    hash (<code>code_challenge</code>)&nbsp;; à l'échange, il prouve qu'il détient le verifier. Un code volé
+    devient inutilisable. C'est aujourd'hui le <strong>standard recommandé pour tous les clients</strong>.
+  </p>
+  <div class="seqd" style="--cols:3">
+    <div class="seqd__scroll">
+      <div class="seqd__head">
+        <div class="seqd__actor">👤 User</div>
+        <div class="seqd__actor">🖥️ Client (SPA/mobile)</div>
+        <div class="seqd__actor">🔐 Auth Server</div>
+      </div>
+      <div class="seqd__flow">
+        <div class="seqd__lanes"><i></i><i></i><i></i></div>
+        <div class="seqd__note"><span>🔑 le client génère <b>code_verifier</b> + <b>code_challenge = SHA256(verifier)</b></span></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:2/4"><span class="seqd__label"><b>1</b> · /authorize + code_challenge</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--rtl" style="grid-column:1/4"><span class="seqd__label"><b>2</b> · login &amp; consentement</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:1/4"><span class="seqd__label"><b>3</b> · s'authentifie</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--rtl seqd__msg--dashed" style="grid-column:2/4"><span class="seqd__label"><b>4</b> · redirige avec ?code=…</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:2/4"><span class="seqd__label"><b>5</b> · échange code + <b>code_verifier</b> (aucun secret)</span></div></div>
+        <div class="seqd__note"><span>✅ l'Auth Server vérifie SHA256(verifier) == challenge</span></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--rtl seqd__msg--res seqd__msg--dashed" style="grid-column:2/4"><span class="seqd__label"><b>6</b> · access_token</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Client Credentials Flow</h3>
+  <p>Pour les échanges <strong>machine à machine</strong> (service → service), sans utilisateur. Le client s'authentifie avec ses propres identifiants et obtient un token pour <em>lui-même</em>.</p>
+  <div class="seqd" style="--cols:3">
+    <div class="seqd__scroll">
+      <div class="seqd__head">
+        <div class="seqd__actor">⚙️ Client (service)</div>
+        <div class="seqd__actor">🔐 Auth Server</div>
+        <div class="seqd__actor">📦 Resource / API</div>
+      </div>
+      <div class="seqd__flow">
+        <div class="seqd__lanes"><i></i><i></i><i></i></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:1/3"><span class="seqd__label"><b>1</b> · client_id + client_secret (grant=client_credentials)</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--rtl seqd__msg--res seqd__msg--dashed" style="grid-column:1/3"><span class="seqd__label"><b>2</b> · access_token</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:1/4"><span class="seqd__label"><b>3</b> · appel API + Bearer token</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--rtl seqd__msg--res seqd__msg--dashed" style="grid-column:1/4"><span class="seqd__label"><b>4</b> · réponse</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">L'Implicit Flow est déprécié</div>
+      <p>L'ancien <em>Implicit Flow</em> renvoyait l'access token <strong>directement dans l'URL</strong> de
+      redirection (fragment) — exposé dans l'historique, les logs, le referer. Sans PKCE ni échange serveur, il
+      est vulnérable au vol de token. <strong>À ne plus utiliser</strong>&nbsp;: on lui préfère
+      <em>Authorization Code + PKCE</em> partout, y compris pour les SPA.</p>
+    </div>
+  </div>
+
+  <h3>Access Token vs Refresh Token</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>&nbsp;</th><th>Access Token</th><th>Refresh Token</th></tr></thead>
+      <tbody>
+        <tr><td>Rôle</td><td>Accéder aux ressources (envoyé à chaque requête)</td><td>Obtenir un nouvel access token sans re-login</td></tr>
+        <tr><td>Durée de vie</td><td>Courte (min. à quelques heures)</td><td>Longue (jours à semaines)</td></tr>
+        <tr><td>Exposition</td><td>Envoyé souvent → surface d'exposition</td><td>Gardé secret, envoyé rarement</td></tr>
+        <tr><td>Stockage conseillé</td><td>En mémoire (SPA) ; jamais en <code>localStorage</code></td><td>Cookie <code>HttpOnly</code>, <code>Secure</code>, <code>SameSite</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted"><strong>Scopes.</strong> Un scope limite ce que le token autorise&nbsp;: <code>read:orders</code>, <code>write:profile</code>… L'app ne demande que le strict nécessaire (moindre privilège), et l'utilisateur voit à quoi il consent. Exemple&nbsp;: <code>scope=openid profile email read:orders</code>.</p>
+
+  <!-- ================================================================
+       C) OPENID CONNECT
+       ================================================================ -->
+  <h2>C · OpenID Connect (OIDC)</h2>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">La différence fondamentale</div>
+      <p><strong>OAuth 2.0 = autorisation</strong> («&nbsp;cette app peut-elle accéder à mes données&nbsp;?&nbsp;»).
+      <strong>OIDC = authentification</strong> («&nbsp;<em>qui</em> est cet utilisateur&nbsp;?&nbsp;»). OIDC est une
+      <strong>couche d'identité par-dessus OAuth2</strong>&nbsp;: il réutilise le même flow, mais ajoute un
+      <strong>ID Token</strong> qui prouve l'identité de l'utilisateur.</p>
+    </div>
+  </div>
+
+  <h3>L'ID Token : un JWT</h3>
+  <p>L'ID Token est un <strong>JWT</strong> (JSON Web Token) en trois parties séparées par des points&nbsp;: <strong>header</strong>.<strong>payload</strong>.<strong>signature</strong>, chacune encodée en Base64URL.</p>
+  <div class="jwt">
+    <span class="jh">eyJhbGciOiJSUzI1NiIsImtpZCI6ImFiYzEyMyJ9</span><span class="jd">.</span><span class="jp">eyJpc3MiOiJodHRwczovL2lkcC5leGVtcGxlLmNvbSIsInN1YiI6IjI0ODI4OSJ9</span><span class="jd">.</span><span class="js">SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</span>
+  </div>
+  <div class="jwt-legend">
+    <span><i style="background:#e34948"></i>Header — algorithme &amp; clé</span>
+    <span><i style="background:#a855f7"></i>Payload — les claims</span>
+    <span><i style="background:#2a78d6"></i>Signature — intégrité vérifiable</span>
+  </div>
+  <p>Décodé, le <strong>header</strong> indique comment vérifier la signature&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">header (décodé)</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-json">{
+  "alg": "RS256",        // algorithme de signature (RSA + SHA-256)
+  "typ": "JWT",
+  "kid": "abc123"        // identifiant de la clé publique (via jwks_uri)
+}</code></pre>
+  </div>
+  <p>Le <strong>payload</strong> contient les <em>claims</em> (affirmations sur l'utilisateur)&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">payload (décodé)</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-json">{
+  "iss": "https://idp.exemple.com/",   // issuer : qui a émis le token
+  "sub": "248289761001",               // subject : l'identifiant unique de l'utilisateur
+  "aud": "mon-app-client-id",          // audience : pour quel client ce token est destiné
+  "exp": 1735689600,                   // expiration (timestamp Unix)
+  "iat": 1735686000,                   // issued at : date d'émission
+  "email": "alice@exemple.com",
+  "email_verified": true,
+  "name": "Alice Martin"
+}</code></pre>
+  </div>
+  <p>La <strong>signature</strong> (par la clé privée de l'IdP) garantit que le token n'a pas été altéré&nbsp;: le client la vérifie avec la clé publique récupérée via <code>jwks_uri</code>. Un JWT est <em>signé, pas chiffré</em> — ne jamais y mettre de secret.</p>
+
+  <h3>Claims standards</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Claim</th><th>Signification</th></tr></thead>
+      <tbody>
+        <tr><td><code>iss</code></td><td>Issuer — l'autorité qui a émis le token</td></tr>
+        <tr><td><code>sub</code></td><td>Subject — identifiant unique et stable de l'utilisateur</td></tr>
+        <tr><td><code>aud</code></td><td>Audience — le(s) destinataire(s) prévu(s) du token</td></tr>
+        <tr><td><code>exp</code></td><td>Expiration — au-delà, le token est invalide</td></tr>
+        <tr><td><code>iat</code></td><td>Issued At — date d'émission</td></tr>
+        <tr><td><code>nbf</code></td><td>Not Before — pas valide avant cette date</td></tr>
+        <tr><td><code>jti</code></td><td>JWT ID — identifiant unique du token (anti-rejeu)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Discovery &amp; /userinfo</h3>
+  <p>Un IdP OIDC publie sa configuration à une URL standard&nbsp;: <code>/.well-known/openid-configuration</code>. Les clients y découvrent automatiquement tous les endpoints&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">/.well-known/openid-configuration</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-json">{
+  "issuer": "https://idp.exemple.com/",
+  "authorization_endpoint": "https://idp.exemple.com/authorize",
+  "token_endpoint": "https://idp.exemple.com/token",
+  "userinfo_endpoint": "https://idp.exemple.com/userinfo",
+  "jwks_uri": "https://idp.exemple.com/.well-known/jwks.json",
+  "response_types_supported": ["code"],
+  "scopes_supported": ["openid", "profile", "email"]
+}</code></pre>
+  </div>
+  <p>L'endpoint <code>/userinfo</code> renvoie les informations du profil pour un access token donné&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">GET /userinfo → réponse</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-json">{
+  "sub": "248289761001",
+  "name": "Alice Martin",
+  "email": "alice@exemple.com",
+  "email_verified": true
+}</code></pre>
+  </div>
+
+  <h3>Le flow OIDC complet</h3>
+  <p>Avec un Identity Provider (Keycloak, Auth0, Google…) — c'est un Authorization Code Flow qui renvoie <em>en plus</em> un ID Token&nbsp;:</p>
+  <div class="seqd" style="--cols:3">
+    <div class="seqd__scroll">
+      <div class="seqd__head">
+        <div class="seqd__actor">👤 User</div>
+        <div class="seqd__actor">🖥️ Client (RP)</div>
+        <div class="seqd__actor">🔐 Identity Provider</div>
+      </div>
+      <div class="seqd__flow">
+        <div class="seqd__lanes"><i></i><i></i><i></i></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:1/3"><span class="seqd__label"><b>1</b> · accède à l'app</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:2/4"><span class="seqd__label"><b>2</b> · /authorize?scope=openid profile email</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--rtl" style="grid-column:1/4"><span class="seqd__label"><b>3</b> · login</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:1/4"><span class="seqd__label"><b>4</b> · s'authentifie</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--rtl seqd__msg--dashed" style="grid-column:2/4"><span class="seqd__label"><b>5</b> · redirige avec ?code=…</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:2/4"><span class="seqd__label"><b>6</b> · échange code (token endpoint)</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--rtl seqd__msg--res seqd__msg--dashed" style="grid-column:2/4"><span class="seqd__label"><b>7</b> · <b>ID Token</b> + Access Token</span></div></div>
+        <div class="seqd__note"><span>✅ le client valide l'ID Token : signature (jwks), iss, aud, exp</span></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--ltr" style="grid-column:2/4"><span class="seqd__label"><b>8</b> · GET /userinfo + Bearer</span></div></div>
+        <div class="seqd__row"><div class="seqd__msg seqd__msg--rtl seqd__msg--res seqd__msg--dashed" style="grid-column:2/4"><span class="seqd__label"><b>9</b> · claims du profil</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       D) SECRETS MANAGEMENT
+       ================================================================ -->
+  <h2>D · Gestion des secrets</h2>
+  <p>
+    Un secret (mot de passe, clé API, token, certificat) <strong>ne doit jamais</strong> se trouver en clair
+    dans le code, un fichier de config, une image Docker ou un <code>.tfstate</code>. Committer un secret, c'est
+    le figer <em>à jamais</em> dans l'historique Git, exposé à quiconque clone le dépôt.
+  </p>
+
+  <h3>HashiCorp Vault</h3>
+  <p>
+    <strong>Vault</strong> centralise, chiffre et contrôle l'accès aux secrets. Deux notions clés&nbsp;:
+    les <strong>secrets engines</strong> (modules qui gèrent un type de secret) et les
+    <strong>secrets dynamiques</strong> — Vault génère des identifiants <em>à la volée</em>, avec une durée de
+    vie courte (lease), puis les révoque automatiquement. Un identifiant fuité expire de lui-même.
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">bash — Vault</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash"># Secret statique (KV v2)
+vault kv put secret/app/db password="s3cr3t"
+vault kv get -field=password secret/app/db
+
+# Secret DYNAMIQUE : Vault crée des identifiants PostgreSQL éphémères
+vault read database/creds/app-role
+# -> username: v-token-app-x9f2
+#    password: A1b2C3d4...
+#    lease_duration: 1h        (révoqués automatiquement après 1h)</code></pre>
+  </div>
+
+  <h3>Alternatives managées</h3>
+  <ul>
+    <li><strong>AWS Secrets Manager</strong> — stockage chiffré (KMS), rotation automatique, accès via IAM.</li>
+    <li><strong>DigitalOcean</strong> — pas de service dédié&nbsp;: on utilise les <em>App-Level Environment Variables</em> chiffrées (encrypted) de l'App Platform, ou un Vault/Doppler externe.</li>
+    <li><strong>Kubernetes</strong> — External Secrets Operator ou Sealed Secrets pour synchroniser ces coffres vers le cluster (cf. chapitre K8s).</li>
+  </ul>
+
+  <!-- ================================================================
+       E) SCAN DE VULNÉRABILITÉS
+       ================================================================ -->
+  <h2>E · Scan de vulnérabilités</h2>
+  <p>Deux familles d'analyse, à des moments différents du pipeline&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>&nbsp;</th><th>SAST</th><th>DAST</th></tr></thead>
+      <tbody>
+        <tr><td>Nom</td><td>Static Application Security Testing</td><td>Dynamic Application Security Testing</td></tr>
+        <tr><td>Analyse</td><td>Le <strong>code source</strong> &amp; les dépendances, sans exécuter</td><td>L'<strong>application en cours d'exécution</strong>, comme un attaquant</td></tr>
+        <tr><td>Moment</td><td>Tôt — au commit / build</td><td>Plus tard — sur un environnement de staging déployé</td></tr>
+        <tr><td>Trouve</td><td>Failles de code, secrets, CVE de dépendances</td><td>Failles runtime (injection, XSS, config)</td></tr>
+        <tr><td>Outils</td><td>Snyk, Semgrep, SonarQube, gitleaks</td><td>OWASP ZAP, Burp</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Où l'intégrer dans le pipeline</h3>
+  <div class="pipeline">
+    <div class="pipeline__track">
+      <div class="pipeline__stage" style="--st-color:#6366f1">
+        <div class="pipeline__stage-name">Commit</div>
+        <div class="pipeline__jobs"><span class="pipeline__job">gitleaks</span></div>
+      </div>
+      <div class="pipeline__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div class="pipeline__stage" style="--st-color:#8b5cf6">
+        <div class="pipeline__stage-name">Build / test</div>
+        <div class="pipeline__jobs"><span class="pipeline__job">SAST · Snyk (deps)</span></div>
+      </div>
+      <div class="pipeline__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div class="pipeline__stage" style="--st-color:#f59e0b">
+        <div class="pipeline__stage-name">Image</div>
+        <div class="pipeline__jobs"><span class="pipeline__job">Trivy (scan image)</span></div>
+      </div>
+      <div class="pipeline__arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+      <div class="pipeline__stage" style="--st-color:#10b981">
+        <div class="pipeline__stage-name">Staging</div>
+        <div class="pipeline__jobs"><span class="pipeline__job">DAST · OWASP ZAP</span></div>
+      </div>
+    </div>
+    <div class="figure__caption">La sécurité est distribuée sur tout le pipeline (« shift-left »), pas concentrée à la fin.</div>
+  </div>
+  <ul>
+    <li><strong>Trivy</strong> — scanne les <strong>images Docker</strong> (couches, paquets OS, dépendances) à la recherche de CVE. On casse le build sur <em>HIGH/CRITICAL</em> (cf. chapitre Docker).</li>
+    <li><strong>Snyk</strong> — scanne les <strong>dépendances</strong> du projet (npm, pip…) et propose des correctifs de version.</li>
+  </ul>
+
+  <!-- ================================================================
+       BONNES PRATIQUES
+       ================================================================ -->
+  <h2>Bonnes pratiques de sécurité</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo DevSecOps</div>
+      <ul>
+        <li><strong>Shift-left</strong> — automatiser les contrôles de sécurité tôt et à chaque étape&nbsp;: casser le build sur une vulnérabilité critique.</li>
+        <li><strong>Moindre privilège</strong> — scopes OAuth minimaux, IAM restreint, tokens courts, pas de root (conteneurs, K8s).</li>
+        <li><strong>Auth Code + PKCE partout</strong> — jamais d'Implicit Flow&nbsp;; valider systématiquement <code>iss</code>, <code>aud</code>, <code>exp</code> et la signature des JWT.</li>
+        <li><strong>Zéro secret en clair</strong> — coffre-fort (Vault/Secrets Manager), secrets dynamiques, scan de secrets (gitleaks) dans la CI.</li>
+        <li><strong>Défense en profondeur</strong> — API Gateway (rate limiting, authz centralisée) + TLS partout + scans SAST/DAST + rotation des secrets.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Sécurité intégrée à la chaîne&nbsp;: acquis. Le chapitre suivant assemble toutes les briques du module en
+    une <strong>architecture de déploiement complète</strong>.
+  </p>
+
+</article>
