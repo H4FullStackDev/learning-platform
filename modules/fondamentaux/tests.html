@@ -1,0 +1,121 @@
+<article class="chapter" data-chapter="tests">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">09</span>
+      <span class="chapter-kicker">Fondamentaux Tech</span>
+      <span class="level-tag level-tag--intermediaire">Intermédiaire</span>
+    </div>
+    <h1 class="chapter-title">Tests &amp; qualité de code</h1>
+    <p class="chapter-lead">Comment être sûr que ton code marche — et qu'il continuera de marcher après tes
+      prochaines modifications ? En écrivant des tests automatiques. On les met en place sur la mini-API.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>La tranquillité d'esprit.</strong> Tester à la main à chaque changement, c'est long et on oublie des
+    cas. Un <strong>test automatique</strong> est un petit programme qui <em>vérifie</em> ton code pour toi, en
+    une commande. Son vrai super-pouvoir&nbsp;: t'avertir quand une modification <strong>casse</strong> quelque
+    chose qui marchait (une «&nbsp;régression&nbsp;»).
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Pourquoi tester&nbsp;?</h2>
+  <ul>
+    <li><strong>Attraper les bugs tôt</strong> — avant tes utilisateurs.</li>
+    <li><strong>Modifier sans peur</strong> — si les tests passent toujours, tu n'as rien cassé.</li>
+    <li><strong>Documenter le comportement</strong> — un test dit «&nbsp;voilà ce que ce code est censé faire&nbsp;».</li>
+  </ul>
+  <p>En Python, l'outil standard s'appelle <strong>pytest</strong>. Le principe&nbsp;: on écrit des fonctions dont le nom commence par <code>test_</code>, et dedans on utilise <code>assert</code> («&nbsp;je vérifie que…&nbsp;»).</p>
+
+  <!-- ============================================================= -->
+  <h2>Ton premier test</h2>
+  <p>Commençons par tester une simple fonction. Crée <code>test_math.py</code>&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">test_math.py</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">def addition(a, b):
+    return a + b
+
+# pytest exécutera automatiquement toute fonction nommée test_...
+def test_addition():
+    assert addition(2, 3) == 5     # "je vérifie que 2 + 3 vaut 5"
+    assert addition(-1, 1) == 0</code></pre>
+  </div>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">pip install pytest
+pytest
+# -> 1 passed   ✅</code></pre>
+  </div>
+  <p><code>assert</code> ne dit rien si c'est vrai&nbsp;; si c'est faux, pytest affiche exactement <em>quoi</em> a échoué. Change <code>== 5</code> en <code>== 6</code> pour voir un test <strong>échouer</strong> (rouge)&nbsp;: c'est instructif.</p>
+
+  <!-- ============================================================= -->
+  <h2>Tester la mini-API</h2>
+  <p>
+    Flask fournit un «&nbsp;client de test&nbsp;» qui appelle ton API <em>sans</em> lancer un vrai serveur —
+    parfait pour les tests. Crée <code>test_app.py</code> à côté de ton <code>app.py</code>&nbsp;:
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">test_app.py</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">from app import app, init_db
+
+def test_lister_taches():
+    init_db()                       # prépare la base
+    client = app.test_client()      # un "faux navigateur" pour tester
+    reponse = client.get("/taches")
+    assert reponse.status_code == 200      # la route répond bien
+
+def test_creer_tache():
+    client = app.test_client()
+    reponse = client.post("/taches", json={"titre": "Tester mon code"})
+    assert reponse.status_code == 201             # 201 = créé
+    assert reponse.get_json()["titre"] == "Tester mon code"</code></pre>
+  </div>
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Lance les tests de ton API <span class="exercise__tag">Exercice</span>
+    </div>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">pytest -v
+# -> test_app.py::test_lister_taches PASSED
+#    test_app.py::test_creer_tache  PASSED
+#    2 passed</code></pre>
+    </div>
+    <p><strong>Résultat attendu&nbsp;:</strong> deux tests verts. Ton API est maintenant <strong>vérifiée automatiquement</strong> — tu pourras la modifier en sachant tout de suite si tu casses quelque chose. 🛡️</p>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Le linting &amp; la lisibilité</h2>
+  <p>
+    Du code qui marche ne suffit pas&nbsp;: il doit être <strong>lisible</strong> (par les autres, et par toi dans
+    six mois). Deux aides&nbsp;:
+  </p>
+  <ul>
+    <li><strong>Un linter</strong> (ex. <code>ruff</code>, <code>flake8</code>) — analyse ton code et signale les erreurs de style, les variables inutilisées, les imports oubliés.</li>
+    <li><strong>Un formateur</strong> (ex. <code>black</code>) — met automatiquement ton code au format standard (indentation, espaces) pour que tout le monde écrive pareil.</li>
+  </ul>
+  <p>Pour la lisibilité «&nbsp;humaine&nbsp;»&nbsp;: des <strong>noms de variables clairs</strong> (<code>total_prix</code> plutôt que <code>x</code>), des <strong>fonctions courtes</strong> qui font une seule chose, et des commentaires quand le <em>pourquoi</em> n'est pas évident.</p>
+
+  <!-- ============================================================= -->
+  <h2>Erreurs fréquentes</h2>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Quand un test ne se comporte pas comme prévu</div>
+      <ul>
+        <li><strong>«&nbsp;pytest ne trouve aucun test&nbsp;»</strong> — le fichier doit s'appeler <code>test_*.py</code> et les fonctions <code>test_*</code>. C'est comme ça que pytest les repère.</li>
+        <li><code>AssertionError</code> — un test échoue&nbsp;: c'est <em>utile</em>&nbsp;! Lis le message, il montre la valeur obtenue vs attendue.</li>
+        <li><code>ModuleNotFoundError</code> au lancement — pense à activer ton venv (chapitre 8) et à installer <code>pytest</code> dedans.</li>
+        <li><strong>Des tests qui dépendent l'un de l'autre</strong> — chaque test doit pouvoir tourner seul. Évite qu'un test s'appuie sur les données créées par un autre.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Ton code est écrit, isolé, testé et lisible — le niveau d'un vrai projet. Dernière étape&nbsp;: l'<strong>empaqueter</strong>
+    pour qu'il tourne partout, et franchir la porte du <strong>DevOps</strong>.
+  </p>
+
+</article>

@@ -1,0 +1,196 @@
+<article class="chapter" data-chapter="intro">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">01</span>
+      <span class="chapter-kicker">System Design</span>
+      <span class="level-tag level-tag--debutant">Débutant</span>
+    </div>
+    <h1 class="chapter-title">Introduction au System Design</h1>
+    <p class="chapter-lead">Concevoir un système, c'est faire des choix sous contraintes. Ce chapitre pose
+      la démarche : clarifier le besoin, estimer l'échelle, dessiner une première architecture — et savoir
+      justifier chaque décision.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>De quoi on parle.</strong> Le <em>System Design</em>, c'est l'art de concevoir l'architecture
+    d'un système logiciel pour qu'il réponde à un besoin <strong>à l'échelle</strong> : fiable, rapide, et
+    capable de grandir. Ce n'est pas qu'un exercice d'entretien — c'est ce qui distingue un prototype qui
+    marche à 100 utilisateurs d'un produit qui tient à 10 millions.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Qu'est-ce que le System Design&nbsp;?</h2>
+  <p>
+    Programmer, c'est écrire du code qui marche. <strong>Concevoir un système</strong>, c'est décider
+    <em>comment les composants s'assemblent</em> — serveurs, bases de données, caches, files, réseau — pour
+    atteindre des objectifs de <strong>performance</strong>, de <strong>disponibilité</strong> et de
+    <strong>coût</strong>, en anticipant la montée en charge et les pannes.
+  </p>
+  <p>
+    Il n'existe <strong>pas de « bonne » réponse unique</strong> : chaque décision est un compromis
+    (<em>trade-off</em>). Plus de cohérence coûte de la latence&nbsp;; plus de disponibilité coûte de la
+    complexité&nbsp;; plus de cache coûte de la fraîcheur. Le vrai savoir-faire, c'est de <strong>choisir en
+    connaissance de cause</strong> et de savoir l'expliquer.
+  </p>
+
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le fil rouge de ce module</div>
+      <p>On part des briques (web, bases de données, cache), on assemble (files, communication entre
+      services), on affronte les systèmes distribués (cohérence, patterns), et on termine par des
+      <strong>études de cas</strong> concrètes. À la fin, vous saurez concevoir — et le module DevOps vous
+      apprend déjà à <em>déployer &amp; exploiter</em> ce que vous concevez.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>La démarche en 4 étapes</h2>
+  <p>Face à un problème de conception (en projet comme en entretien), on ne se jette jamais sur la solution. On suit une méthode&nbsp;:</p>
+
+  <div class="arch">
+    <div class="arch__node" style="--c:#38bdf8">1 · Clarifier<small>le besoin &amp; le périmètre</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#6366f1">2 · Estimer<small>l'échelle (QPS, stockage)</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#10b981">3 · Concevoir<small>l'archi high-level</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#f59e0b">4 · Approfondir<small>&amp; justifier les choix</small></div>
+  </div>
+
+  <ol>
+    <li><strong>Clarifier</strong> — quelles fonctionnalités exactement&nbsp;? Combien d'utilisateurs&nbsp;? Lecture ou écriture intensive&nbsp;? On délimite le périmètre avant tout, avec des questions.</li>
+    <li><strong>Estimer</strong> — des ordres de grandeur (requêtes/seconde, volume de stockage, bande passante). Ça oriente <em>toutes</em> les décisions suivantes.</li>
+    <li><strong>Concevoir</strong> — un premier schéma « boîtes &amp; flèches » : clients, load balancer, services, base, cache. Le squelette avant les détails.</li>
+    <li><strong>Approfondir</strong> — on zoome sur les points chauds (le goulot d'étranglement, le composant critique) et on <strong>justifie chaque compromis</strong>.</li>
+  </ol>
+
+  <!-- ============================================================= -->
+  <h2>Exigences fonctionnelles vs non-fonctionnelles</h2>
+  <p>Deux familles de besoins, à ne jamais confondre&nbsp;:</p>
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card">
+          <h4><span class="pill pill--violet">Fonctionnelles</span></h4>
+          <p><em>Ce que</em> le système fait — les fonctionnalités visibles. « L'utilisateur peut publier un
+          message », « raccourcir une URL », « suivre un ami ». Ce sont les <strong>verbes du produit</strong>.</p>
+        </div>
+        <div class="spec-card">
+          <h4><span class="pill pill--green">Non-fonctionnelles</span></h4>
+          <p><em>Comment</em> il le fait — les qualités du système. Rapidité, disponibilité, capacité à
+          grandir. <strong>C'est là que se joue le System Design.</strong></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p>Les exigences non-fonctionnelles qui reviennent tout le temps&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Qualité</th><th>Question</th><th>Levier principal</th></tr></thead>
+      <tbody>
+        <tr><td>Scalabilité</td><td>Tient-il si le trafic ×100&nbsp;?</td><td>Scaling horizontal, stateless</td></tr>
+        <tr><td>Disponibilité</td><td>Reste-t-il en ligne (99,9&nbsp;%&nbsp;?)</td><td>Redondance, pas de SPOF</td></tr>
+        <tr><td>Latence / performance</td><td>Répond-il vite&nbsp;?</td><td>Cache, index, CDN</td></tr>
+        <tr><td>Cohérence</td><td>Tous voient-ils la même donnée&nbsp;?</td><td>Modèle de cohérence (ch. 8)</td></tr>
+        <tr><td>Durabilité</td><td>La donnée survit-elle aux pannes&nbsp;?</td><td>Réplication, sauvegardes</td></tr>
+        <tr><td>Maintenabilité</td><td>Peut-on le faire évoluer&nbsp;?</td><td>Découplage, modularité</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">On ne peut pas tout maximiser</div>
+      <p>Viser « 100&nbsp;% de tout » n'a pas de sens. Un système de paiement priorise la <strong>cohérence</strong>&nbsp;;
+      un fil d'actualité priorise la <strong>disponibilité</strong> et la latence (un like affiché 2&nbsp;s en retard
+      n'est pas grave). <strong>Identifier ce qui compte pour CE produit</strong>, c'est la première décision de design.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Estimer l'échelle : le « back-of-the-envelope »</h2>
+  <p>
+    Avant de dessiner, on chiffre grossièrement. Pas besoin de précision — des <strong>ordres de grandeur</strong>
+    suffisent pour savoir si on tient sur une machine ou s'il en faut mille. Deux prérequis&nbsp;: les unités et
+    les temps d'accès.
+  </p>
+
+  <h3>Les unités de données</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Unité</th><th>Taille</th><th>Repère</th></tr></thead>
+      <tbody>
+        <tr><td>KB (kilo)</td><td>10<sup>3</sup> octets</td><td>une page de texte</td></tr>
+        <tr><td>MB (méga)</td><td>10<sup>6</sup></td><td>une photo, un MP3 court</td></tr>
+        <tr><td>GB (giga)</td><td>10<sup>9</sup></td><td>un film</td></tr>
+        <tr><td>TB (téra)</td><td>10<sup>12</sup></td><td>~250 films</td></tr>
+        <tr><td>PB (péta)</td><td>10<sup>15</sup></td><td>l'échelle des géants</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Les temps d'accès (à connaître par cœur)</h3>
+  <p>L'intuition la plus importante du métier&nbsp;: <strong>la mémoire est ~100&nbsp;000× plus rapide que le disque, et le réseau lointain domine tout.</strong></p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Opération</th><th>Temps approx.</th><th>Intuition</th></tr></thead>
+      <tbody>
+        <tr><td>Cache CPU (L1)</td><td>~1 ns</td><td>instantané</td></tr>
+        <tr><td>Accès mémoire (RAM)</td><td>~100 ns</td><td>la référence « rapide »</td></tr>
+        <tr><td>Lecture aléatoire SSD</td><td>~100 µs</td><td>~1000× la RAM</td></tr>
+        <tr><td>Aller-retour dans un datacenter</td><td>~500 µs</td><td>le réseau local</td></tr>
+        <tr><td>Seek disque dur (HDD)</td><td>~10 ms</td><td>~100 000× la RAM</td></tr>
+        <tr><td>Aller-retour intercontinental</td><td>~150 ms</td><td>la vitesse de la lumière gagne</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Un exemple chiffré</h3>
+  <p>« Concevez un service utilisé par <strong>10 millions d'utilisateurs actifs par jour</strong>, chacun faisant <strong>20 requêtes</strong>. » On estime&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">estimation</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash"># Débit (QPS = requêtes par seconde)
+requetes/jour = 10 000 000 utilisateurs x 20 = 200 000 000
+QPS moyen     = 200 000 000 / 86 400 s ≈ 2 300 QPS
+QPS de pic    ≈ 3 à 5 x la moyenne     ≈ 10 000 QPS   # on dimensionne pour le pic
+
+# Stockage (si chaque utilisateur stocke ~1 KB de données)
+stockage      = 10 000 000 x 1 KB = 10 GB            # tient large en base
+# ... mais avec 1 MB de médias chacun :
+stockage      = 10 000 000 x 1 MB = 10 TB            # il faut du stockage objet + CDN
+
+# Bande passante en lecture (réponse ~10 KB)
+bande passante = 10 000 QPS x 10 KB ≈ 100 MB/s        # dimensionne le réseau / CDN</code></pre>
+  </div>
+  <p class="muted">Ces chiffres ne servent pas à être exacts, mais à <strong>trancher</strong>&nbsp;: 10&nbsp;GB tient dans une base classique&nbsp;; 10&nbsp;TB de médias impose un stockage objet + CDN&nbsp;; 10&nbsp;000 QPS impose du scaling horizontal et du cache. L'estimation <em>dicte</em> l'architecture.</p>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo du concepteur</div>
+      <ul>
+        <li><strong>Toujours clarifier avant de concevoir</strong> — poser des questions n'est pas une faiblesse, c'est la première compétence.</li>
+        <li><strong>Chiffrer avant de dessiner</strong> — l'échelle (QPS, stockage) dicte l'architecture.</li>
+        <li><strong>Nommer les compromis</strong> — chaque choix a un coût&nbsp;; le dire à voix haute prouve la maîtrise.</li>
+        <li><strong>Commencer simple</strong> — une architecture minimale qui marche, puis on scale le maillon faible. Pas de complexité prématurée.</li>
+        <li><strong>Identifier le point chaud</strong> — la lecture&nbsp;? l'écriture&nbsp;? c'est là qu'on met le cache, l'index ou la réplication.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    On a la méthode et les ordres de grandeur. Avant de concevoir, il faut connaître les <strong>briques</strong>
+    qu'on va assembler&nbsp;: c'est le chapitre suivant — <strong>Les briques du web</strong>.
+  </p>
+
+</article>

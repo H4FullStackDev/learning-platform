@@ -1,0 +1,175 @@
+<article class="chapter" data-chapter="web">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">04</span>
+      <span class="chapter-kicker">Fondamentaux Tech</span>
+      <span class="level-tag level-tag--debutant">Débutant</span>
+    </div>
+    <h1 class="chapter-title">Comment fonctionne le web</h1>
+    <p class="chapter-lead">Que se passe-t-il vraiment quand tu tapes une adresse et appuies sur Entrée ?
+      On soulève le capot : client/serveur, HTTP, DNS, JSON et les API.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Pourquoi c'est important.</strong> Ton code Python ne restera pas sur ta machine&nbsp;: il deviendra
+    une <em>application</em> que d'autres utilisent via internet. Comprendre comment circule l'information sur le
+    web est indispensable — c'est le décor de tout ce qui suit.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Client &amp; serveur : le restaurant</h2>
+  <p>
+    Le web fonctionne par <strong>demande / réponse</strong>. Imagine un restaurant&nbsp;: toi, le
+    <strong>client</strong>, tu passes commande&nbsp;; la <strong>cuisine</strong> (le <strong>serveur</strong>)
+    prépare et te renvoie le plat. Sur le web&nbsp;: ton navigateur (client) envoie une <strong>requête</strong>,
+    un serveur la traite et renvoie une <strong>réponse</strong> (la page, des données…).
+  </p>
+  <div class="arch">
+    <div class="arch__node arch__node--ext">Client<small>ton navigateur</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>requête</div>
+    <div class="arch__node" style="--c:#f59e0b">Serveur<small>prépare la réponse</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>réponse</div>
+    <div class="arch__node arch__node--ext">Client</div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>L'URL décortiquée</h2>
+  <p>Une <strong>URL</strong> est l'adresse d'une ressource sur le web. Décomposons&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">une URL</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">https://www.exemple.com/produits?categorie=livres
+  │        │              │         │
+  │        │              │         └─ paramètres (query) : des filtres
+  │        │              └─ chemin (path) : quelle ressource
+  │        └─ nom de domaine : quel serveur
+  └─ protocole : https (sécurisé) ou http</code></pre>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>HTTP : la langue du web</h2>
+  <p>
+    <strong>HTTP</strong> est le protocole (l'ensemble de règles) que client et serveur utilisent pour se parler.
+    Chaque requête a une <strong>méthode</strong> qui dit <em>quelle action</em> on veut&nbsp;:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Méthode</th><th>Action</th><th>Analogie</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET</code></td><td>Lire / récupérer</td><td>consulter la carte</td></tr>
+        <tr><td><code>POST</code></td><td>Créer</td><td>passer une commande</td></tr>
+        <tr><td><code>PUT</code></td><td>Modifier / remplacer</td><td>changer sa commande</td></tr>
+        <tr><td><code>DELETE</code></td><td>Supprimer</td><td>annuler la commande</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Et chaque réponse porte un <strong>code de statut</strong> qui dit comment ça s'est passé&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Code</th><th>Sens</th><th>Exemple</th></tr></thead>
+      <tbody>
+        <tr><td><code>2xx</code></td><td>✅ Ça a marché</td><td><strong>200</strong> OK</td></tr>
+        <tr><td><code>3xx</code></td><td>↪️ Va voir ailleurs</td><td>301 Redirection</td></tr>
+        <tr><td><code>4xx</code></td><td>🙋 Erreur de ta part</td><td><strong>404</strong> Not Found</td></tr>
+        <tr><td><code>5xx</code></td><td>💥 Erreur du serveur</td><td><strong>500</strong> Server Error</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Le fameux <strong>404</strong>, c'est ça&nbsp;: tu demandes une page qui n'existe pas.</p>
+
+  <!-- ============================================================= -->
+  <h2>DNS : l'annuaire du web</h2>
+  <p>
+    On tape <code>exemple.com</code>, mais les serveurs se trouvent par leur <strong>adresse IP</strong> (une
+    suite de chiffres, ex. <code>93.184.216.34</code>). Le <strong>DNS</strong> est l'<strong>annuaire</strong>
+    qui traduit le nom en adresse — comme un carnet de contacts qui associe un <em>nom</em> à un
+    <em>numéro de téléphone</em>. Ton navigateur le fait automatiquement, en une fraction de seconde.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>JSON : le format d'échange</h2>
+  <p>
+    Quand deux programmes s'échangent des données, ils utilisent le plus souvent le <strong>JSON</strong> —
+    un format texte à la fois <strong>lisible par un humain</strong> et <strong>facile pour une machine</strong>.
+    Il ressemble beaucoup aux dictionnaires Python&nbsp;:
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">JSON</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-json">{
+  "id": 42,
+  "nom": "Alice",
+  "email": "alice@exemple.com",
+  "actif": true,
+  "roles": ["admin", "editeur"]
+}</code></pre>
+  </div>
+  <p>Des <strong>clés</strong> («&nbsp;nom&nbsp;») associées à des <strong>valeurs</strong> (texte, nombre, booléen, liste). C'est tout&nbsp;!</p>
+
+  <!-- ============================================================= -->
+  <h2>Une API REST, c'est quoi&nbsp;?</h2>
+  <p>
+    Une <strong>API</strong> (Application Programming Interface) est la <strong>carte du restaurant</strong> d'un
+    service&nbsp;: la liste de ce qu'il sait faire, et comment le lui demander. Le style <strong>REST</strong>
+    organise ça autour de <strong>ressources</strong> (des noms, au pluriel) manipulées avec les méthodes HTTP&nbsp;:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Requête</th><th>Ce qu'elle fait</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /produits</code></td><td>Lister tous les produits</td></tr>
+        <tr><td><code>GET /produits/42</code></td><td>Lire le produit n°42</td></tr>
+        <tr><td><code>POST /produits</code></td><td>Créer un produit</td></tr>
+        <tr><td><code>DELETE /produits/42</code></td><td>Supprimer le produit n°42</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">C'est exactement ce type d'API qu'on construira au chapitre 6 (le projet fil rouge)&nbsp;!</p>
+
+  <!-- ============================================================= -->
+  <h2>Tester une API avec curl</h2>
+  <p><code>curl</code> est un outil du terminal qui envoie des requêtes HTTP — comme un navigateur, mais en texte. Parfait pour voir ce qu'une API renvoie.</p>
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Ta première requête à une vraie API <span class="exercise__tag">Exercice</span>
+    </div>
+    <p>Dans ton terminal, interroge une API publique de test&nbsp;:</p>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">curl https://jsonplaceholder.typicode.com/todos/1</code></pre>
+    </div>
+    <p><strong>Résultat attendu&nbsp;:</strong> l'API te renvoie du JSON, quelque chose comme&nbsp;:</p>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">réponse (JSON)</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-json">{
+  "userId": 1,
+  "id": 1,
+  "title": "delectus aut autem",
+  "completed": false
+}</code></pre>
+    </div>
+    <p>Tu viens de communiquer avec un serveur à l'autre bout du monde, en une commande. 🌍 (Tu peux aussi coller l'URL dans ton navigateur — même résultat.)</p>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Erreurs fréquentes</h2>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Ce que tu croiseras</div>
+      <ul>
+        <li><strong>404 Not Found</strong> — l'URL est fausse ou la ressource n'existe pas. Vérifie l'adresse.</li>
+        <li><strong>500 Server Error</strong> — le problème vient du serveur, pas de toi. Réessaie plus tard ou signale-le.</li>
+        <li><code>Could not resolve host</code> — le DNS n'a pas trouvé le domaine (nom mal tapé, ou pas de connexion internet).</li>
+        <li><code>Connection refused</code> — rien n'écoute à cette adresse/port (le serveur n'est pas démarré). On reparlera des ports au chapitre 7.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Tu comprends comment circule l'information sur le web. Mais où le serveur range-t-il ses données&nbsp;? Dans
+    une <strong>base de données</strong> — c'est le prochain chapitre.
+  </p>
+
+</article>

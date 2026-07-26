@@ -1,0 +1,127 @@
+<article class="chapter" data-chapter="intro">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">01</span>
+      <span class="chapter-kicker">SRE</span>
+      <span class="level-tag level-tag--debutant">Débutant</span>
+    </div>
+    <h1 class="chapter-title">Introduction au SRE</h1>
+    <p class="chapter-lead">Le SRE, c'est ce qui se passe quand on confie l'exploitation à des ingénieurs
+      logiciels : on traite la fiabilité comme un problème d'ingénierie, mesurable et automatisable. La
+      mise en œuvre concrète du DevOps.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>La phrase à retenir.</strong> «&nbsp;<em>SRE is what you get when you treat operations as if it's a
+    software problem.</em>&nbsp;» Né chez Google (2003), le <strong>Site Reliability Engineering</strong> applique
+    les méthodes de l'ingénierie logicielle à l'exploitation&nbsp;: au lieu de subir la production, on la
+    <strong>mesure</strong>, on l'<strong>automatise</strong> et on la <strong>fiabilise</strong> par le code.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Qu'est-ce que le SRE&nbsp;?</h2>
+  <p>
+    Historiquement, les <em>ops</em> exploitaient à la main des systèmes construits par d'autres&nbsp;: du travail
+    répétitif, réactif, qui grandit avec le trafic. Le SRE renverse la table&nbsp;: on recrute des
+    <strong>ingénieurs logiciels</strong> pour l'exploitation, et on leur demande d'<strong>automatiser leur
+    propre travail</strong>. La fiabilité devient une <strong>fonctionnalité comme une autre</strong> — qu'on
+    conçoit, mesure et améliore.
+  </p>
+  <p>
+    Trois idées fondatrices structurent tout le reste&nbsp;:
+  </p>
+  <ul>
+    <li><strong>La fiabilité se mesure</strong> — pas de «&nbsp;ça marche à peu près&nbsp;», mais des objectifs chiffrés (SLO).</li>
+    <li><strong>Le travail manuel est un bug</strong> — le <em>toil</em> répétitif doit être automatisé, pas enduré.</li>
+    <li><strong>L'échec est normal</strong> — on conçoit <em>pour</em> la panne, et on apprend d'elle (sans blâmer).</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>SRE et DevOps</h2>
+  <p>
+    On résume souvent la relation par une formule&nbsp;: «&nbsp;<strong>class SRE implements DevOps</strong>&nbsp;».
+    Le DevOps est une <em>philosophie</em> (des principes)&nbsp;; le SRE en est une <strong>implémentation
+    concrète et prescriptive</strong>, avec des pratiques précises et des chiffres.
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>&nbsp;</th><th>DevOps</th><th>SRE</th></tr></thead>
+      <tbody>
+        <tr><td>Nature</td><td>Culture &amp; principes</td><td>Discipline d'ingénierie prescriptive</td></tr>
+        <tr><td>« Réduire les silos »</td><td>Le principe</td><td>Des SRE qui codent &amp; opèrent</td></tr>
+        <tr><td>« Mesurer »</td><td>Le principe</td><td>SLI / SLO / error budgets</td></tr>
+        <tr><td>« Accepter l'échec »</td><td>Le principe</td><td>Postmortems blameless, budget d'erreur</td></tr>
+        <tr><td>« Automatiser »</td><td>Le principe</td><td>Élimination mesurée du toil</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">C'est le complément naturel du module <a href="app.html?m=devops" target="_blank" rel="noopener">DevOps</a> (livrer &amp; opérer) et du module <a href="app.html?m=system-design" target="_blank" rel="noopener">System Design</a> (concevoir)&nbsp;: le SRE se concentre sur la <strong>fiabilité en production</strong>.</p>
+
+  <!-- ============================================================= -->
+  <h2>Le principe central : l'error budget</h2>
+  <p>
+    Voici l'idée la plus contre-intuitive du SRE&nbsp;: <strong>viser 100&nbsp;% de fiabilité est une
+    erreur</strong>. C'est infiniment coûteux, et surtout inutile — personne ne perçoit la différence entre
+    99,99&nbsp;% et 100&nbsp;% (le wifi de l'utilisateur est déjà moins fiable que ça).
+  </p>
+  <p>
+    Alors on choisit une cible <em>en dessous</em> de 100&nbsp;% (un <strong>SLO</strong>, ex. 99,9&nbsp;%). La
+    marge restante — les 0,1&nbsp;% — est un <strong>budget d'erreur</strong> qu'on a le <em>droit</em> de
+    dépenser. Ce budget <strong>réconcilie enfin Dev et Ops</strong>&nbsp;:
+  </p>
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card">
+          <h4><span class="pill pill--green">Budget disponible</span></h4>
+          <p>On peut <strong>livrer vite</strong>, prendre des risques, expérimenter. La fiabilité est «&nbsp;dans
+          les clous&nbsp;».</p>
+        </div>
+        <div class="spec-card">
+          <h4><span class="pill pill--red">Budget épuisé</span></h4>
+          <p>On <strong>gèle les nouvelles features</strong> et on se concentre sur la fiabilité jusqu'à revenir
+          dans le budget. Objectif partagé, décision automatique.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="muted">Plus de débat «&nbsp;les devs veulent livrer / les ops veulent la stabilité&nbsp;»&nbsp;: le budget d'erreur tranche à la place des égos. On l'approfondit aux chapitres 2 et 3.</p>
+
+  <!-- ============================================================= -->
+  <h2>Que fait un SRE au quotidien&nbsp;?</h2>
+  <p>Le métier s'articule autour de quelques grandes activités — qui sont aussi le plan de ce module&nbsp;:</p>
+  <div class="arch">
+    <div class="arch__node" style="--c:#10b981">Mesurer<small>SLI · SLO · budget</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#38bdf8">Observer<small>monitoring · alerting</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#ef4444">Répondre<small>incidents · postmortems</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#f59e0b">Améliorer<small>toil · chaos · capacity</small></div>
+  </div>
+  <p class="muted">Une règle célèbre encadre le métier&nbsp;: un SRE ne doit pas passer plus de <strong>50&nbsp;% de son temps en «&nbsp;toil&nbsp;»</strong> (opérationnel manuel). L'autre moitié va à l'<strong>ingénierie</strong> qui réduira ce toil — sinon l'équipe se noie dans le réactif.</p>
+
+  <!-- ============================================================= -->
+  <h2>L'état d'esprit</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo SRE</div>
+      <ul>
+        <li><strong>La fiabilité est une feature</strong> — on la conçoit et on la mesure, on ne l'espère pas.</li>
+        <li><strong>100&nbsp;% est le mauvais objectif</strong> — viser un SLO réaliste et dépenser le budget d'erreur.</li>
+        <li><strong>Automatiser plutôt que subir</strong> — le toil répétitif est du travail d'ingénieur gâché.</li>
+        <li><strong>Blâmer les systèmes, pas les gens</strong> — la panne est une source d'apprentissage.</li>
+        <li><strong>Piloter par la donnée</strong> — les décisions (livrer ou geler) découlent des métriques, pas des opinions.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Tout le SRE repose sur une chose&nbsp;: <strong>mesurer la fiabilité</strong>. C'est l'objet du chapitre
+    suivant — <strong>SLI / SLO / SLA</strong>.
+  </p>
+
+</article>

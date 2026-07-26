@@ -1,0 +1,229 @@
+<article class="chapter" data-chapter="mini-api">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">06</span>
+      <span class="chapter-kicker">Fondamentaux Tech</span>
+      <span class="level-tag level-tag--intermediaire">Intermédiaire</span>
+    </div>
+    <h1 class="chapter-title">Projet fil rouge : une mini-API</h1>
+    <p class="chapter-lead">On assemble tout ce qu'on a appris — Python + SQLite + le web — pour construire
+      une vraie petite API. C'est LE projet qu'on gardera et fera évoluer jusqu'à la fin de la formation.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le moment où ça devient concret.</strong> Jusqu'ici, chaque brique était isolée. Ici, on les
+    <strong>assemble</strong> pour créer une <strong>API de tâches</strong> (une petite <em>to-do list</em>) que
+    n'importe quel programme pourra interroger via HTTP. On garde ce projet pour les chapitres suivants (réseau,
+    dépendances, tests, Docker) — et jusque dans la Formation DevOps pour apprendre à le <em>déployer</em>.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Ce qu'on va construire</h2>
+  <p>Une API REST (chapitre 4) qui gère des tâches, avec les 4 opérations «&nbsp;CRUD&nbsp;»&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Requête</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /taches</code></td><td>Lister toutes les tâches</td></tr>
+        <tr><td><code>GET /taches/&lt;id&gt;</code></td><td>Lire une tâche</td></tr>
+        <tr><td><code>POST /taches</code></td><td>Créer une tâche</td></tr>
+        <tr><td><code>DELETE /taches/&lt;id&gt;</code></td><td>Supprimer une tâche</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>On utilise <strong>Flask</strong> (un mini-framework web Python, très simple) et <strong>SQLite</strong> (la base-fichier du chapitre 5).</p>
+
+  <!-- ============================================================= -->
+  <h2>Installer Flask</h2>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">pip install flask
+# pip est le "magasin d'applications" de Python : il installe des bibliothèques</code></pre>
+  </div>
+  <p class="muted">On verra au chapitre 8 comment isoler proprement ces installations par projet (les <em>environnements virtuels</em>). Pour l'instant, cette commande suffit.</p>
+
+  <!-- ============================================================= -->
+  <h2>Étape 1 — Le squelette</h2>
+  <p>Commençons par le plus petit serveur qui marche. Crée un fichier <code>app.py</code>&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">app.py</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">from flask import Flask
+
+app = Flask(__name__)          # on crée l'application
+
+@app.route("/")                # quand on visite l'adresse "/"
+def accueil():
+    return "Mon API fonctionne !"
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)   # démarre le serveur sur le port 5000</code></pre>
+  </div>
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Lance ton premier serveur <span class="exercise__tag">Exercice</span>
+    </div>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">python app.py
+# -> Running on http://127.0.0.1:5000</code></pre>
+    </div>
+    <p>Ouvre <code>http://localhost:5000</code> dans ton navigateur (ou <code>curl http://localhost:5000</code> dans un <em>autre</em> terminal). Tu dois voir <strong>« Mon API fonctionne&nbsp;! »</strong>. 🎉 Ton ordinateur est devenu un serveur web&nbsp;! Laisse-le tourner ; pour l'arrêter, fais <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Étape 2 — Brancher SQLite</h2>
+  <p>On ajoute deux fonctions&nbsp;: une pour se connecter à la base, une pour créer la table au démarrage.</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">app.py (extrait)</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">import sqlite3
+
+def get_db():
+    conn = sqlite3.connect("taches.db")
+    conn.row_factory = sqlite3.Row   # pour lire les lignes comme des dictionnaires
+    return conn
+
+def init_db():
+    conn = get_db()
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS taches "
+        "(id INTEGER PRIMARY KEY, titre TEXT, faite INTEGER DEFAULT 0)"
+    )
+    conn.commit()
+    conn.close()</code></pre>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Étape 3 — Les routes CRUD</h2>
+  <p>Chaque route est une fonction Python décorée par <code>@app.route(...)</code>. On y écrit du SQL (chapitre 5) et on renvoie du JSON (chapitre 4) avec <code>jsonify</code>.</p>
+
+  <h3>Le code complet — <code>app.py</code></h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">app.py</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">from flask import Flask, request, jsonify
+import sqlite3
+
+app = Flask(__name__)
+
+def get_db():
+    conn = sqlite3.connect("taches.db")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db()
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS taches "
+        "(id INTEGER PRIMARY KEY, titre TEXT, faite INTEGER DEFAULT 0)"
+    )
+    conn.commit()
+    conn.close()
+
+# Lister toutes les tâches
+@app.route("/taches", methods=["GET"])
+def lister():
+    conn = get_db()
+    lignes = conn.execute("SELECT * FROM taches").fetchall()
+    conn.close()
+    return jsonify([dict(l) for l in lignes])
+
+# Lire une tâche par son id
+@app.route("/taches/&lt;int:id&gt;", methods=["GET"])
+def lire(id):
+    conn = get_db()
+    ligne = conn.execute("SELECT * FROM taches WHERE id = ?", (id,)).fetchone()
+    conn.close()
+    if ligne is None:
+        return jsonify({"erreur": "Tâche introuvable"}), 404
+    return jsonify(dict(ligne))
+
+# Créer une tâche
+@app.route("/taches", methods=["POST"])
+def creer():
+    data = request.get_json()
+    conn = get_db()
+    cur = conn.execute("INSERT INTO taches (titre) VALUES (?)", (data["titre"],))
+    conn.commit()
+    nouvel_id = cur.lastrowid
+    conn.close()
+    return jsonify({"id": nouvel_id, "titre": data["titre"], "faite": 0}), 201
+
+# Supprimer une tâche
+@app.route("/taches/&lt;int:id&gt;", methods=["DELETE"])
+def supprimer(id):
+    conn = get_db()
+    conn.execute("DELETE FROM taches WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Tâche supprimée"})
+
+if __name__ == "__main__":
+    init_db()
+    app.run(debug=True, port=5000)</code></pre>
+  </div>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le <code>?</code> dans les requêtes SQL</div>
+      <p>On écrit <code>WHERE id = ?</code> avec un <code>?</code>, puis on passe la valeur à part (<code>(id,)</code>).
+      C'est une <strong>requête paramétrée</strong> : ça évite une faille de sécurité classique (l'injection SQL).
+      Ne colle <em>jamais</em> une valeur reçue directement dans une requête — on approfondira côté sécurité plus tard.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Tester ton API</h2>
+  <p>Relance <code>python app.py</code>, puis, dans un <em>autre</em> terminal, teste chaque route&nbsp;:</p>
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Fais vivre ton API <span class="exercise__tag">Exercice</span>
+    </div>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash"># Créer une tâche (POST avec du JSON)
+curl -X POST http://localhost:5000/taches \
+  -H "Content-Type: application/json" \
+  -d '{"titre": "Apprendre le DevOps"}'
+# -> {"faite":0,"id":1,"titre":"Apprendre le DevOps"}
+
+# Lister toutes les tâches
+curl http://localhost:5000/taches
+# -> [{"faite":0,"id":1,"titre":"Apprendre le DevOps"}]
+
+# Lire la tâche 1
+curl http://localhost:5000/taches/1
+
+# Supprimer la tâche 1
+curl -X DELETE http://localhost:5000/taches/1
+# -> {"message":"Tâche supprimée"}</code></pre>
+    </div>
+    <p><strong>Résultat attendu&nbsp;:</strong> chaque commande renvoie du JSON. Tu viens de construire une vraie API qui crée, lit et supprime des données en base&nbsp;! 🚀 Un fichier <code>taches.db</code> est apparu à côté de ton <code>app.py</code> : c'est ta base SQLite.</p>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Erreurs fréquentes</h2>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Les blocages du débutant</div>
+      <ul>
+        <li><code>ModuleNotFoundError: No module named 'flask'</code> — Flask n'est pas installé (ou pas dans le bon environnement). Refais <code>pip install flask</code>.</li>
+        <li><code>Address already in use</code> (port 5000) — un serveur tourne déjà sur ce port. Arrête l'ancien (<kbd>Ctrl</kbd>+<kbd>C</kbd>) ou change le <code>port=</code>. On expliquera les ports au chapitre 7.</li>
+        <li><strong>La page ne répond pas</strong> — as-tu bien lancé <code>python app.py</code> ? Le serveur doit rester <em>ouvert</em> dans son terminal ; teste depuis un second terminal.</li>
+        <li><strong>Erreur sur le POST</strong> — n'oublie pas l'en-tête <code>Content-Type: application/json</code> et des guillemets valides dans le <code>-d</code>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Bravo — tu as une <strong>vraie application</strong> qui tourne&nbsp;! Elle écoute sur
+    <code>localhost:5000</code>… mais que veulent dire «&nbsp;localhost&nbsp;» et «&nbsp;port 5000&nbsp;»&nbsp;? C'est
+    exactement le sujet du prochain chapitre&nbsp;: le <strong>réseau pour développeurs</strong>.
+  </p>
+
+</article>

@@ -1,0 +1,113 @@
+<article class="chapter" data-chapter="capacity">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">10</span>
+      <span class="chapter-kicker">SRE</span>
+      <span class="level-tag level-tag--avance">Avancé</span>
+    </div>
+    <h1 class="chapter-title">Capacity planning &amp; déploiements sûrs</h1>
+    <p class="chapter-lead">Deux garants finaux de la fiabilité : assez de ressources pour la demande, et
+      des changements qui n'explosent pas la production — parce que le changement est la première cause de
+      panne.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Les deux risques structurels.</strong> Un service tombe pour deux grandes raisons&nbsp;: il
+    <strong>manque de ressources</strong> (la demande dépasse la capacité), ou un <strong>changement</strong> l'a
+    cassé. Le capacity planning traite le premier&nbsp;; le release engineering, le second. Ce chapitre clôt la
+    boucle du SRE.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Capacity planning</h2>
+  <p>
+    Prévoir la capacité, c'est garantir qu'il y aura <strong>assez de ressources</strong> pour la demande —
+    aujourd'hui et demain — sans surpayer inutilement. On anticipe deux types de croissance&nbsp;:
+  </p>
+  <ul>
+    <li><strong>Organique</strong> — la montée naturelle du trafic (plus d'utilisateurs mois après mois).</li>
+    <li><strong>Inorganique</strong> — les pics prévisibles&nbsp;: lancement produit, campagne marketing, Black Friday.</li>
+  </ul>
+  <p>La démarche&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Étape</th><th>Comment</th></tr></thead>
+      <tbody>
+        <tr><td>Prévoir la demande</td><td>Extrapoler à partir des métriques historiques (croissance) + événements connus.</td></tr>
+        <tr><td>Connaître sa capacité</td><td><strong>Tests de charge</strong> (cf. <a href="app.html?m=devops#scaling" target="_blank" rel="noopener">DevOps → Scalabilité</a>)&nbsp;: à quel QPS le système sature&nbsp;?</td></tr>
+        <tr><td>Garder de la marge</td><td>Ne pas tourner à 100&nbsp;%&nbsp;: prévoir du <em>headroom</em> pour les pics &amp; la perte d'une zone.</td></tr>
+        <tr><td>Automatiser</td><td><strong>Autoscaling</strong> pour suivre la charge en temps réel, sans intervention.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Réactif (autoscaling qui suit la charge) vs prédictif (pré-scaler avant un pic connu)&nbsp;: les deux se combinent. On garde toujours une marge pour absorber la perte d'une zone entière.</p>
+
+  <!-- ============================================================= -->
+  <h2>Le changement, première cause de panne</h2>
+  <p>
+    La majorité des incidents surviennent <strong>juste après un déploiement</strong>. Le paradoxe du SRE&nbsp;:
+    on veut livrer souvent (vélocité), mais chaque livraison est un risque. La réponse n'est pas de livrer
+    <em>moins</em>, mais de livrer <strong>plus prudemment</strong> — la <em>progressive delivery</em>.
+  </p>
+
+  <h3>Déploiements progressifs</h3>
+  <ul>
+    <li><strong>Canary</strong> — on expose la nouvelle version à une <strong>petite fraction</strong> du trafic, on surveille les SLO, puis on augmente. Au moindre écart, rollback. (Stratégies détaillées dans <a href="app.html?m=devops#gitops" target="_blank" rel="noopener">DevOps → GitOps</a>.)</li>
+    <li><strong>Rolling / Blue-Green</strong> — remplacement progressif, ou bascule instantanée avec retour arrière immédiat.</li>
+    <li><strong>Rollback automatique</strong> — si un déploiement fait chuter un SLO, on revient en arrière <em>tout seul</em>, sans attendre l'humain.</li>
+  </ul>
+
+  <h3>Feature flags</h3>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Découpler « déployer » et « activer »</div>
+      <p>Un <strong>feature flag</strong> permet de mettre du code en production <em>désactivé</em>, puis de
+      l'<strong>activer progressivement</strong> (1&nbsp;%, 10&nbsp;%, 100&nbsp;% des utilisateurs) sans redéployer. En
+      cas de souci, on coupe le flag instantanément (<em>kill switch</em>) — bien plus rapide qu'un rollback. Le
+      déploiement devient un non-événement&nbsp;; le vrai lancement, c'est le flag.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo capacity &amp; releases</div>
+      <ul>
+        <li><strong>Prévoir organique + inorganique</strong> — la croissance ET les pics connus.</li>
+        <li><strong>Connaître ses limites</strong> — par des tests de charge réguliers&nbsp;; garder du headroom.</li>
+        <li><strong>Livrer progressivement</strong> — canary + surveillance des SLO, jamais 100&nbsp;% d'un coup.</li>
+        <li><strong>Rollback automatique sur SLO</strong> — la machine annule plus vite que l'humain.</li>
+        <li><strong>Feature flags</strong> — déployer ≠ activer&nbsp;; un kill switch vaut mille rollbacks.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Le mot de la fin</h2>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Ce que le SRE t'apprend</div>
+      <p>La fiabilité n'est pas un accident&nbsp;: c'est une <strong>discipline d'ingénierie</strong>. On la
+      <strong>mesure</strong> (SLO), on l'<strong>observe</strong> (monitoring/alerting), on <strong>répond</strong>
+      aux pannes en apprenant sans blâmer, et on <strong>améliore</strong> en continu (toil, chaos, capacity).
+      Le SRE, c'est le refus de subir la production — et le choix de l'ingénierer.</p>
+    </div>
+  </div>
+
+  <p class="muted" style="text-align:center; margin-top:24px">
+    🎉 Fin du module <strong>SRE</strong>. La boucle H4Techno est complète&nbsp;: <strong>System Design</strong>
+    pour concevoir, <strong>DevOps</strong> pour livrer &amp; opérer, <strong>SRE</strong> pour fiabiliser.
+    Trois formations, un métier.
+  </p>
+
+</article>

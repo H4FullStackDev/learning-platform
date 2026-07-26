@@ -1,11 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Module DevOps">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="H4Techno">
   <defs>
-    <linearGradient id="fg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#8b7cff"/>
-      <stop offset="1" stop-color="#6355e6"/>
+    <linearGradient id="h4g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#a855f7"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="15" fill="url(#fg)"/>
-  <path d="M32 32 C27 21 17 21 14 32 C17 43 27 43 32 32 C37 21 47 21 50 32 C47 43 37 43 32 32 Z"
-        fill="none" stroke="#ffffff" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="64" height="64" rx="15" fill="url(#h4g)"/>
+  <!-- Monogramme H4 dessiné en formes (net à toutes les tailles, sans police) -->
+  <g fill="#ffffff">
+    <!-- H -->
+    <rect x="13" y="18" width="6" height="28" rx="2"/>
+    <rect x="25" y="18" width="6" height="28" rx="2"/>
+    <rect x="15" y="29" width="14" height="6" rx="2"/>
+    <!-- 4 -->
+    <rect x="45" y="18" width="6" height="28" rx="2"/>
+    <path d="M45 18 L36 35 h9 z"/>
+    <rect x="34" y="33" width="17" height="6" rx="2"/>
+  </g>
 </svg>

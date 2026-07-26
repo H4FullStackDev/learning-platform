@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="H4Techno Formations">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c0c12"/>
+      <stop offset="1" stop-color="#08080a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="12%" r="60%">
+      <stop offset="0" stop-color="#7c6bf9" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#7c6bf9" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="h4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="txt" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9a8dfb"/>
+      <stop offset="0.5" stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- Badge H4 -->
+  <g transform="translate(545,86)">
+    <rect width="110" height="110" rx="26" fill="url(#h4)"/>
+    <g fill="#ffffff" transform="translate(23,31) scale(1.02)">
+      <rect x="0" y="0" width="10" height="48" rx="3"/>
+      <rect x="20" y="0" width="10" height="48" rx="3"/>
+      <rect x="3" y="19" width="24" height="10" rx="3"/>
+      <rect x="55" y="0" width="10" height="48" rx="3"/>
+      <path d="M55 0 L40 29 h15 z"/>
+      <rect x="37" y="27" width="28" height="10" rx="3"/>
+    </g>
+  </g>
+
+  <!-- Titre -->
+  <text x="600" y="300" text-anchor="middle" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="72" font-weight="800" letter-spacing="-2">
+    <tspan fill="#ffffff">H4Techno </tspan><tspan fill="url(#txt)">Formations</tspan>
+  </text>
+
+  <!-- Sous-titre -->
+  <text x="600" y="356" text-anchor="middle" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="30" font-weight="500" fill="#9b9ba7">
+    Apprendre la tech par la pratique — du débutant à l'avancé
+  </text>
+
+  <!-- Pills des formations -->
+  <g font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="24" font-weight="600">
+    <g transform="translate(343,438)">
+      <rect width="158" height="48" rx="24" fill="#16161c" stroke="#2a2a34"/>
+      <circle cx="26" cy="24" r="6" fill="#7c6bf9"/>
+      <text x="44" y="32" fill="#e7e7ea">DevOps</text>
+    </g>
+    <g transform="translate(521,438)">
+      <rect width="222" height="48" rx="24" fill="#16161c" stroke="#2a2a34"/>
+      <circle cx="26" cy="24" r="6" fill="#38bdf8"/>
+      <text x="44" y="32" fill="#e7e7ea">System Design</text>
+    </g>
+    <g transform="translate(763,438)">
+      <rect width="96" height="48" rx="24" fill="#16161c" stroke="#2a2a34"/>
+      <circle cx="26" cy="24" r="6" fill="#10b981"/>
+      <text x="44" y="32" fill="#e7e7ea">SRE</text>
+    </g>
+  </g>
+
+  <text x="600" y="556" text-anchor="middle" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="20" font-weight="500" fill="#6b6b78">
+    3 formations · 32 chapitres · schémas clairs &amp; code réel
+  </text>
+</svg>

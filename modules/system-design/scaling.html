@@ -1,0 +1,155 @@
+<article class="chapter" data-chapter="scaling">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">03</span>
+      <span class="chapter-kicker">System Design</span>
+      <span class="level-tag level-tag--debutant">Débutant</span>
+    </div>
+    <h1 class="chapter-title">Scalabilité &amp; performance : les bases</h1>
+    <p class="chapter-lead">Faire grandir le squelette web sans le casser : scaling vertical vs horizontal,
+      latence vs débit, répartition de charge, applications sans état et CDN. Les fondations de toute
+      conception scalable.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le cœur du métier.</strong> Concevoir, c'est surtout répondre à «&nbsp;et si le trafic était
+    ×100&nbsp;?&nbsp;». Ce chapitre pose le vocabulaire et les leviers fondamentaux. On les retrouvera
+    partout ensuite — et le module <a href="app.html?m=devops#scaling" target="_blank" rel="noopener">DevOps</a>
+    montre comment on les <em>exploite</em> concrètement (autoscaling, etc.).
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Scaler vers le haut ou vers le côté</h2>
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card">
+          <h4><span class="pill pill--amber">Vertical (scale up)</span></h4>
+          <p>Une machine <strong>plus puissante</strong> (plus de CPU/RAM). Simple, sans changement de code —
+          mais plafonné par la plus grosse machine disponible, et c'est un <strong>point unique de
+          défaillance</strong>.</p>
+        </div>
+        <div class="spec-card">
+          <h4><span class="pill pill--green">Horizontal (scale out)</span></h4>
+          <p><strong>Plus de machines</strong> derrière un load balancer. Quasi illimité, résilient (une tombe,
+          les autres tiennent) et automatisable. <strong>L'approche par défaut du web moderne.</strong></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="muted">On commence souvent vertical (rapide, pas cher au début), puis on bascule horizontal quand les limites arrivent. Le scaling horizontal a un prérequis absolu&nbsp;: être <strong>sans état</strong> (plus bas).</p>
+
+  <!-- ============================================================= -->
+  <h2>Latence vs débit</h2>
+  <p>Deux mesures de performance qu'on confond souvent — et qu'on optimise différemment&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>&nbsp;</th><th>Latence</th><th>Débit (throughput)</th></tr></thead>
+      <tbody>
+        <tr><td>Définition</td><td>Temps d'<strong>une</strong> requête</td><td><strong>Nombre</strong> de requêtes par seconde</td></tr>
+        <tr><td>Unité</td><td>millisecondes (ms)</td><td>req/s (QPS)</td></tr>
+        <tr><td>Analogie (autoroute)</td><td>Temps de trajet d'une voiture</td><td>Voitures qui passent par heure</td></tr>
+        <tr><td>On l'améliore avec…</td><td>Cache, CDN, index, proximité</td><td>Scaling horizontal, parallélisme</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">On mesure les percentiles, pas la moyenne</div>
+      <p>La latence «&nbsp;moyenne&nbsp;» ment&nbsp;: elle cache les utilisateurs qui souffrent. On suit les
+      <strong>percentiles</strong> — <strong>p95</strong> (95&nbsp;% des requêtes sont plus rapides que…) et
+      <strong>p99</strong>. C'est la <em>queue</em> de la distribution qui détermine l'expérience réelle
+      (les 4 golden signals du module DevOps).</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>La répartition de charge</h2>
+  <p>
+    Le <strong>load balancer</strong> distribue le trafic sur plusieurs instances&nbsp;: c'est lui qui rend le
+    scaling horizontal possible. Il retire aussi automatiquement une instance en panne (<em>health checks</em>).
+    Deux niveaux et plusieurs algorithmes&nbsp;:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Aspect</th><th>Détail</th></tr></thead>
+      <tbody>
+        <tr><td>Niveau L4 (transport)</td><td>Répartit au niveau TCP, très rapide, sans lire le HTTP.</td></tr>
+        <tr><td>Niveau L7 (application)</td><td>Comprend HTTP&nbsp;: routage par chemin/host, terminaison TLS.</td></tr>
+        <tr><td>Round-robin</td><td>Chaque instance à tour de rôle — le défaut.</td></tr>
+        <tr><td>Least connections</td><td>Vers l'instance la moins occupée.</td></tr>
+        <tr><td>Weighted</td><td>Plus de trafic vers les instances les plus puissantes.</td></tr>
+        <tr><td>IP hash</td><td>Un client tombe toujours sur la même instance (affinité).</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Le sans état (stateless), condition du scaling</h2>
+  <p>
+    Si un serveur garde l'état d'un utilisateur <em>en mémoire locale</em> (sa session), alors ce user
+    <strong>doit</strong> toujours retomber sur ce serveur — et on ne peut plus répartir librement. La règle&nbsp;:
+    <strong>les serveurs d'app ne gardent aucun état.</strong> On externalise l'état&nbsp;:
+  </p>
+  <ul>
+    <li><strong>Sessions dans un magasin partagé</strong> — Redis&nbsp;: n'importe quel serveur peut lire la session de n'importe quel user.</li>
+    <li><strong>Ou des tokens autoportants</strong> — un JWT (module DevSecOps) contient l'identité&nbsp;; le serveur n'a rien à stocker.</li>
+    <li><strong>Fichiers dans un stockage objet</strong> (S3/Spaces), jamais sur le disque d'un pod.</li>
+  </ul>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Les « sticky sessions » sont un pansement</div>
+      <p>Coller un utilisateur à un serveur (<em>sticky session</em>) fait fonctionner un app stateful derrière
+      un load balancer… mais casse l'équilibrage et la résilience (si le serveur tombe, la session est perdue).
+      C'est une béquille&nbsp;: <strong>préférez le vrai stateless.</strong></p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Le CDN : rapprocher le contenu de l'utilisateur</h2>
+  <p>
+    Un <strong>CDN</strong> (Content Delivery Network) est un réseau de serveurs répartis dans le monde qui
+    <strong>cachent le contenu au plus près des utilisateurs</strong>. Un visiteur à Tokyo est servi depuis
+    Tokyo, pas depuis votre serveur à Paris&nbsp;: <strong>latence réduite</strong> et <strong>charge de
+    l'origine déchargée</strong>.
+  </p>
+  <div class="arch">
+    <div class="arch__node arch__node--ext">Utilisateur<small>Tokyo</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#3b82f6">CDN (edge)<small>proche de l'utilisateur</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>miss</div>
+    <div class="arch__node" style="--c:#38bdf8">Origine<small>votre serveur</small></div>
+  </div>
+  <p class="muted">Idéal pour le <strong>statique</strong> (JS, CSS, images, vidéos). En cas de <em>hit</em>, le CDN répond seul&nbsp;; en cas de <em>miss</em>, il va chercher à l'origine puis met en cache. On peut aussi y cacher des réponses d'API peu changeantes.</p>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo scalabilité</div>
+      <ul>
+        <li><strong>Stateless d'abord</strong> — sans ça, rien ne scale horizontalement.</li>
+        <li><strong>Distinguer latence &amp; débit</strong> — et suivre les <em>percentiles</em> (p95/p99), pas la moyenne.</li>
+        <li><strong>Load balancer + health checks</strong> — pour répartir et survivre aux pannes.</li>
+        <li><strong>CDN pour le statique</strong> — le gain de latence le moins cher qui existe.</li>
+        <li><strong>Repousser le travail</strong> — le meilleur calcul est celui qu'on ne fait pas (cache, à venir).</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Ce tier <strong>Débutant</strong> est bouclé&nbsp;: méthode, briques, fondations de la scalabilité. On
+    entre maintenant dans le concret des composants — à commencer par le plus critique&nbsp;: les
+    <strong>bases de données en profondeur</strong> (tier Intermédiaire).
+  </p>
+
+</article>

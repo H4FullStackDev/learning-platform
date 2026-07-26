@@ -1,0 +1,134 @@
+<article class="chapter" data-chapter="network">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">07</span>
+      <span class="chapter-kicker">Fondamentaux Tech</span>
+      <span class="level-tag level-tag--intermediaire">Intermédiaire</span>
+    </div>
+    <h1 class="chapter-title">Réseau pour développeurs</h1>
+    <p class="chapter-lead">Ton API tourne sur « localhost:5000 »… mais qu'est-ce que ça veut dire ? Juste
+      ce qu'il faut de réseau pour comprendre, tester et débugger tes applications.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Pas besoin d'être ingénieur réseau.</strong> Comme développeur, tu as besoin de quelques notions
+    clés&nbsp;: adresses IP, ports, et savoir lire une erreur réseau. On les découvre en s'appuyant sur la
+    <strong>mini-API du chapitre 6</strong>, qui tourne justement sur le réseau de ta machine.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>L'adresse IP : l'adresse d'une machine</h2>
+  <p>
+    Chaque machine sur un réseau a une <strong>adresse IP</strong> — comme une <strong>adresse postale</strong>
+    qui permet de la retrouver. Par exemple <code>93.184.216.34</code>. Deux adresses spéciales à connaître&nbsp;:
+  </p>
+  <ul>
+    <li><code>127.0.0.1</code> (alias <strong><code>localhost</code></strong>) — <strong>ta propre machine</strong>. Quand ton API dit «&nbsp;<code>Running on 127.0.0.1</code>&nbsp;», elle ne parle qu'à toi, en local. C'est «&nbsp;chez moi&nbsp;».</li>
+    <li>Les IP <strong>privées</strong> (ex. <code>192.168.x.x</code>) — les machines de ton réseau local (box, ordis, imprimante). Les IP <strong>publiques</strong> sont visibles depuis internet.</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Les ports : les portes d'une machine</h2>
+  <p>
+    Une machine fait tourner <em>plusieurs</em> services en même temps. Comment les distinguer&nbsp;? Grâce aux
+    <strong>ports</strong>. L'analogie&nbsp;: si l'IP est l'adresse d'un <strong>immeuble</strong>, le port est le
+    <strong>numéro d'appartement</strong>. <code>localhost:5000</code> = «&nbsp;l'appartement 5000 de ma machine&nbsp;»
+    — c'est là qu'écoute ta mini-API.
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Port</th><th>Service habituel</th></tr></thead>
+      <tbody>
+        <tr><td><code>80</code></td><td>HTTP (web non sécurisé)</td></tr>
+        <tr><td><code>443</code></td><td>HTTPS (web sécurisé)</td></tr>
+        <tr><td><code>22</code></td><td>SSH (connexion à distance à un serveur)</td></tr>
+        <tr><td><code>5000</code></td><td>notre mini-API Flask (par défaut)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Une machine a 65&nbsp;535 ports possibles. Un seul service peut écouter sur un port donné à la fois — d'où l'erreur «&nbsp;port déjà utilisé&nbsp;» du chapitre 6.</p>
+
+  <!-- ============================================================= -->
+  <h2>TCP vs UDP</h2>
+  <p>Deux façons d'acheminer les données&nbsp;:</p>
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card">
+          <h4><span class="pill pill--violet">TCP</span> (fiable)</h4>
+          <p>Comme un <strong>appel téléphonique</strong>&nbsp;: on établit la connexion, on vérifie que tout arrive,
+          dans l'ordre. Un peu plus lent, mais sûr. <strong>Le web (HTTP) utilise TCP.</strong></p>
+        </div>
+        <div class="spec-card">
+          <h4><span class="pill pill--green">UDP</span> (rapide)</h4>
+          <p>Comme <strong>crier un message</strong>&nbsp;: on envoie sans vérifier la réception. Plus rapide, mais
+          des paquets peuvent se perdre. Utilisé pour la <strong>vidéo, le jeu en ligne</strong>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Les outils de diagnostic</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Commande</th><th>À quoi ça sert</th></tr></thead>
+      <tbody>
+        <tr><td><code>ping &lt;machine&gt;</code></td><td>«&nbsp;Es-tu joignable&nbsp;?&nbsp;» — teste si une machine répond</td></tr>
+        <tr><td><code>curl &lt;url&gt;</code></td><td>Envoie une requête HTTP (chapitre 4)</td></tr>
+        <tr><td><code>nslookup &lt;domaine&gt;</code></td><td>Demande au DNS l'adresse IP d'un domaine</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Explore le réseau <span class="exercise__tag">Exercice</span>
+    </div>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">ping google.com          # -> des réponses avec un "temps" en ms (Ctrl+C pour arrêter)
+
+# Lance ta mini-API (python app.py) dans un autre terminal, puis :
+curl http://localhost:5000/taches   # -> tu parles à TON serveur, en local</code></pre>
+    </div>
+    <p><strong>Résultat attendu&nbsp;:</strong> <code>ping</code> affiche des lignes «&nbsp;temps=12&nbsp;ms&nbsp;» (la machine répond), et <code>curl</code> te renvoie le JSON de ton API. Tu viens de vérifier une connexion et de dialoguer avec ton propre serveur&nbsp;! ✅</p>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Lire une erreur réseau</h2>
+  <p>Quand une connexion échoue, le message te dit <em>presque toujours</em> pourquoi&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Erreur</th><th>Traduction</th><th>Que faire</th></tr></thead>
+      <tbody>
+        <tr><td><code>Connection refused</code></td><td>Personne n'écoute sur ce port</td><td>Le serveur est-il démarré&nbsp;? Bon port&nbsp;?</td></tr>
+        <tr><td><code>timeout</code></td><td>La machine ne répond pas (à temps)</td><td>Machine éteinte, ou pare-feu qui bloque</td></tr>
+        <tr><td><code>Could not resolve host</code></td><td>Le DNS ne connaît pas ce nom</td><td>Domaine mal tapé, ou pas d'internet</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Erreurs fréquentes</h2>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Les confusions classiques</div>
+      <ul>
+        <li><strong>«&nbsp;curl localhost marche, mais pas depuis mon téléphone&nbsp;»</strong> — <code>localhost</code> = <em>la machine locale</em>. Un autre appareil doit viser l'IP de ton PC sur le réseau (ex. <code>192.168.1.20:5000</code>), pas <code>localhost</code>.</li>
+        <li><code>Address already in use</code> — deux programmes veulent le même port. Ferme l'ancien, ou change de port.</li>
+        <li><strong>Un pare-feu qui bloque</strong> — sur certains réseaux, un port peut être fermé par sécurité. Teste d'abord en local.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Tu comprends où et comment ton app est joignable. Avant d'aller plus loin, faisons le ménage&nbsp;: notre
+    installation de Flask est «&nbsp;sauvage&nbsp;». Le prochain chapitre la rend propre et reproductible —
+    <strong>environnements &amp; dépendances</strong>.
+  </p>
+
+</article>

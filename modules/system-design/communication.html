@@ -1,0 +1,109 @@
+<article class="chapter" data-chapter="communication">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">07</span>
+      <span class="chapter-kicker">System Design</span>
+      <span class="level-tag level-tag--intermediaire">Intermédiaire</span>
+    </div>
+    <h1 class="chapter-title">Communication entre services</h1>
+    <p class="chapter-lead">Quand on découpe un système en services, ils doivent se parler. REST, gRPC,
+      GraphQL, API Gateway, service discovery : choisir le bon canal et le bon protocole.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le sujet.</strong> Dès qu'on passe du monolithe à plusieurs services, une nouvelle question surgit&nbsp;:
+    <em>comment communiquent-ils&nbsp;?</em> Directement (synchrone) ou via des événements (asynchrone, chapitre
+    précédent)&nbsp;? Avec quel protocole&nbsp;? Et comment se trouvent-ils&nbsp;? Ce chapitre fait le tour.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Synchrone ou asynchrone&nbsp;?</h2>
+  <p>Le premier choix, avant le protocole&nbsp;:</p>
+  <ul>
+    <li><strong>Synchrone</strong> (requête/réponse) — le service A appelle B et attend. Simple, immédiat&nbsp;; mais A dépend de la disponibilité et de la latence de B (couplage fort).</li>
+    <li><strong>Asynchrone</strong> (événements/files) — A émet un message, B réagit plus tard. Découplé et résilient&nbsp;; mais plus complexe à suivre. (Chapitre 6.)</li>
+  </ul>
+  <p class="muted">Règle de pouce&nbsp;: <strong>synchrone</strong> quand la réponse est nécessaire tout de suite (lire un profil)&nbsp;; <strong>asynchrone</strong> pour les effets de bord (envoyer un e-mail après inscription).</p>
+
+  <!-- ============================================================= -->
+  <h2>REST vs gRPC vs GraphQL</h2>
+  <p>Trois styles pour les appels synchrones, chacun avec sa raison d'être&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Critère</th><th>REST</th><th>gRPC</th><th>GraphQL</th></tr></thead>
+      <tbody>
+        <tr><td>Format</td><td>JSON sur HTTP</td><td>Protobuf (binaire) / HTTP&#8202;2</td><td>JSON sur HTTP</td></tr>
+        <tr><td>Force</td><td>Simple, universel, cacheable</td><td>Rapide, contrat strict, streaming</td><td>Le client choisit les champs</td></tr>
+        <tr><td>Faiblesse</td><td>Sur/sous-fetching</td><td>Moins lisible, pas natif navigateur</td><td>Complexe à cacher &amp; sécuriser</td></tr>
+        <tr><td>Idéal pour</td><td>API publiques, CRUD</td><td>Communication <em>interne</em> service↔service</td><td>Front avec besoins de données variés (mobile)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">En pratique, on mélange</div>
+      <p>Beaucoup d'architectures utilisent <strong>REST/GraphQL en façade</strong> (vers les clients web/mobile,
+      via l'API Gateway) et <strong>gRPC en interne</strong> (entre microservices, pour la performance et le
+      contrat fort). Le bon outil au bon endroit.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>L'API Gateway</h2>
+  <p>
+    Avec des dizaines de services, on ne les expose pas tous directement. Une <strong>API Gateway</strong> est
+    le <strong>point d'entrée unique</strong>&nbsp;: elle route vers le bon service, centralise
+    l'authentification, le rate limiting et la transformation — pendant que l'intérieur évolue librement.
+  </p>
+  <div class="arch">
+    <div class="arch__node arch__node--ext">Clients<small>web · mobile</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#7c6bf9">API Gateway<small>entrée unique</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__branch">
+      <div class="arch__node" style="--c:#6366f1">service users</div>
+      <div class="arch__node" style="--c:#10b981">service orders</div>
+      <div class="arch__node" style="--c:#eb6834">service paiement</div>
+    </div>
+  </div>
+  <p class="muted">On détaille l'API Gateway (Kong, rate limiting, OAuth2/OIDC) dans le module <a href="app.html?m=devops#security" target="_blank" rel="noopener">DevOps → Sécurité DevSecOps</a>.</p>
+
+  <!-- ============================================================= -->
+  <h2>Service discovery</h2>
+  <p>
+    Dans le cloud, les services apparaissent, disparaissent et changent d'IP en permanence (autoscaling,
+    redémarrages). Comment le service A trouve-t-il l'adresse actuelle de B&nbsp;? Grâce au <strong>service
+    discovery</strong>&nbsp;: un <strong>registre</strong> tient à jour la liste des instances saines.
+  </p>
+  <ul>
+    <li><strong>Registre</strong> — chaque instance s'y enregistre au démarrage (Consul, etcd, ou le DNS interne de Kubernetes).</li>
+    <li><strong>Découverte côté serveur</strong> — le client appelle un load balancer qui connaît les instances (le cas de Kubernetes&nbsp;: on appelle un <em>Service</em> par son nom).</li>
+    <li><strong>Découverte côté client</strong> — le client interroge le registre puis choisit une instance lui-même.</li>
+    <li><strong>Health checks</strong> — les instances non saines sont retirées automatiquement.</li>
+  </ul>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo communication</div>
+      <ul>
+        <li><strong>Synchrone pour l'immédiat, asynchrone pour les effets de bord</strong> — et découpler dès que possible.</li>
+        <li><strong>gRPC en interne, REST/GraphQL en façade</strong> — performance dedans, universalité dehors.</li>
+        <li><strong>Une API Gateway en entrée</strong> — auth, rate limit &amp; routage centralisés.</li>
+        <li><strong>Versionner les APIs</strong> (<code>/v1</code>, <code>/v2</code>) — pour évoluer sans casser les clients.</li>
+        <li><strong>Timeouts &amp; retries partout</strong> — un appel synchrone qui pend peut faire tomber toute la chaîne (résilience, chapitre 9).</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Fin du tier <strong>Intermédiaire</strong>&nbsp;: on maîtrise les composants et leurs interactions. Reste
+    le plus profond — ce qui rend les systèmes <em>distribués</em> vraiment difficiles. Direction le tier
+    <strong>Avancé</strong>, avec la <strong>cohérence &amp; le théorème CAP</strong>.
+  </p>
+
+</article>

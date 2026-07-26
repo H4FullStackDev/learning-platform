@@ -11,6 +11,16 @@
   <link rel="mask-icon" href="assets/favicon.svg" color="#7c6bf9" />
   <meta name="theme-color" content="#7c6bf9" />
 
+  <!-- Open Graph / Twitter (aperçus de partage) — remplacer par des URL absolues en prod -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="H4Techno Formations" />
+  <meta property="og:title" content="H4Techno Formations" />
+  <meta property="og:description" content="DevOps, System Design, SRE. Schémas clairs, code réel, du débutant à l'avancé." />
+  <meta property="og:image" content="assets/og.png" />
+  <meta property="og:image:alt" content="H4Techno Formations" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="assets/og.png" />
+
   <!-- Thème appliqué avant le rendu pour éviter tout flash (FOUC) -->
   <script>
     (function () {
@@ -70,7 +80,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
 
   <!-- Styles custom -->
-  <link rel="stylesheet" href="assets/css/style.css?v=3" />
+  <link rel="stylesheet" href="assets/css/style.css?v=11" />
 </head>
 
 <body class="font-sans antialiased">
@@ -87,7 +97,7 @@
         <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" />
       </svg>
     </button>
-    <span class="mobile-header__title">Module <strong>DevOps</strong></span>
+    <span class="mobile-header__title"><strong id="mobile-title">Formation</strong></span>
     <button class="theme-toggle" data-theme-toggle type="button" aria-label="Changer de thème">
       <svg width="18" height="18" class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
       <svg width="18" height="18" class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
@@ -111,8 +121,8 @@
             </svg>
           </div>
           <div class="sidebar__brand-text">
-            <span class="sidebar__brand-title">Module DevOps</span>
-            <span class="sidebar__brand-sub">← Retour à l'accueil</span>
+            <span class="sidebar__brand-title" id="module-title">Formation</span>
+            <span class="sidebar__brand-sub">← Toutes les formations</span>
           </div>
         </a>
         <button class="theme-toggle" data-theme-toggle type="button" aria-label="Changer de thème">
@@ -131,12 +141,14 @@
         </div>
       </div>
 
+      <div class="sidebar__prereq" id="module-prereq" hidden></div>
+
       <nav id="chapter-nav" class="sidebar__nav" aria-label="Chapitres">
         <!-- Rempli dynamiquement par app.js -->
       </nav>
 
       <div class="sidebar__footer">
-        <span>12 chapitres · Débutant → Avancé</span>
+        <span id="sidebar-count">12 chapitres</span>
       </div>
     </aside>
 
@@ -169,6 +181,7 @@
 
   </div>
 
-  <script src="assets/js/app.js?v=4" defer></script>
+  <script src="assets/js/catalog.js?v=11" defer></script>
+  <script src="assets/js/app.js?v=11" defer></script>
 </body>
 </html>

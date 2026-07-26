@@ -1,0 +1,138 @@
+<article class="chapter" data-chapter="vers-devops">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">10</span>
+      <span class="chapter-kicker">Fondamentaux Tech</span>
+      <span class="level-tag level-tag--intermediaire">Intermédiaire</span>
+    </div>
+    <h1 class="chapter-title">Passerelle vers le DevOps</h1>
+    <p class="chapter-lead">Dernier chapitre ! On empaquette ta mini-API dans un conteneur pour qu'elle
+      tourne partout à l'identique — ton tout premier Dockerfile — et on ouvre la porte de la Formation 01.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>La dernière brique.</strong> Tu sais coder, versionner, tester et isoler ton projet. Il reste à
+    l'<strong>empaqueter</strong> pour qu'il tourne <em>partout</em> pareil — sur ta machine comme sur un serveur.
+    C'est exactement là que commence le <strong>DevOps</strong>. On pose la première pierre&nbsp;: un conteneur.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Le problème : «&nbsp;ça marche chez moi&nbsp;»</h2>
+  <p>
+    Ton API marche sur ton ordinateur. Mais sur celui d'un collègue, ou sur un serveur&nbsp;? Version de Python
+    différente, dépendance manquante, config qui change… La phrase la plus célèbre de l'informatique&nbsp;:
+    «&nbsp;<em>pourtant ça marche chez moi&nbsp;!</em>&nbsp;». On va la faire disparaître.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>C'est quoi un conteneur&nbsp;?</h2>
+  <p>
+    Un <strong>conteneur</strong> est une <strong>boîte qui contient ton app <em>et</em> tout ce dont elle a
+    besoin</strong> pour tourner (Python, Flask, ton code, la config). L'analogie&nbsp;: un <strong>conteneur
+    maritime</strong> — peu importe le bateau, le camion ou le pays, la boîte reste identique et son contenu
+    voyage sans surprise. <strong>Docker</strong> est l'outil qui fabrique et lance ces boîtes.
+  </p>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Avant de commencer</div>
+      <p>Installe <strong>Docker Desktop</strong> depuis <a href="https://docker.com" target="_blank" rel="noopener">docker.com</a> et lance-le. Vérifie avec <code>docker --version</code>. On voit juste le strict nécessaire ici&nbsp;: la Formation DevOps y consacre un chapitre entier.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Ton premier Dockerfile</h2>
+  <p>Un <strong>Dockerfile</strong> est la <em>recette</em> de ta boîte. Crée un fichier nommé <code>Dockerfile</code> (sans extension) à côté de ton <code>app.py</code>&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">Dockerfile</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-dockerfile">FROM python:3.12-slim        # on part d'une base Python légère
+WORKDIR /app                 # dossier de travail dans la boîte
+
+COPY requirements.txt .      # on copie d'abord la liste des dépendances
+RUN pip install -r requirements.txt   # et on les installe
+
+COPY . .                     # puis on copie tout le code
+
+EXPOSE 5000                  # on documente le port utilisé
+CMD ["python", "app.py"]     # la commande qui démarre l'app</code></pre>
+  </div>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Une petite retouche à ton app.py</div>
+      <p>Dans un conteneur, ton app doit écouter sur <code>0.0.0.0</code> (toutes les interfaces) pour être
+      joignable de l'extérieur — sinon elle ne parle qu'à l'intérieur de la boîte. Modifie la dernière ligne&nbsp;:</p>
+<pre><code class="language-python">app.run(host="0.0.0.0", port=port)   # au lieu de host implicite 127.0.0.1</code></pre>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Construire &amp; lancer ta boîte</h2>
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Ton app dans un conteneur <span class="exercise__tag">Exercice</span>
+    </div>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">docker build -t mini-api .      # fabrique l'image (la boîte) à partir du Dockerfile
+docker run -p 5000:5000 mini-api  # lance la boîte, port 5000 relié à ta machine
+
+# Dans un AUTRE terminal :
+curl http://localhost:5000/taches</code></pre>
+    </div>
+    <p><strong>Résultat attendu&nbsp;:</strong> ton API répond… mais elle tourne maintenant <strong>dans un conteneur</strong>, avec sa propre version de Python et ses dépendances. Cette même boîte tournerait à l'identique sur n'importe quel serveur. 📦🎉 Tu viens de faire du DevOps&nbsp;!</p>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Le chemin parcouru</h2>
+  <p>Fais une pause et mesure : en 10 chapitres, tu es passé·e de <em>zéro</em> à ça&nbsp;👇</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tu sais maintenant…</th><th>Chapitre</th></tr></thead>
+      <tbody>
+        <tr><td>Utiliser le terminal &amp; naviguer sous Linux</td><td>01</td></tr>
+        <tr><td>Versionner ton code avec Git &amp; GitHub</td><td>02</td></tr>
+        <tr><td>Programmer en Python (dont la POO)</td><td>03</td></tr>
+        <tr><td>Comprendre le web, HTTP &amp; les API</td><td>04</td></tr>
+        <tr><td>Stocker des données en SQL</td><td>05</td></tr>
+        <tr><td>Construire une vraie API (le fil rouge)</td><td>06</td></tr>
+        <tr><td>Diagnostiquer le réseau</td><td>07</td></tr>
+        <tr><td>Isoler tes projets &amp; protéger tes secrets</td><td>08</td></tr>
+        <tr><td>Tester automatiquement ton code</td><td>09</td></tr>
+        <tr><td>Empaqueter ton app dans un conteneur</td><td>10</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Tu es prêt·e pour la Formation 01 🚀</h2>
+  <p>
+    Tu as désormais <strong>toutes les bases</strong> pour aborder sereinement le DevOps. La
+    <strong>Formation 01 — DevOps</strong> reprend là où on s'arrête et pousse chaque brique bien plus loin&nbsp;:
+    Git avancé &amp; collaboration, <strong>CI/CD</strong> (tests &amp; déploiements automatiques),
+    <strong>Docker en profondeur</strong>, <strong>Kubernetes</strong>, l'infrastructure as code, le monitoring…
+    et surtout&nbsp;: apprendre à <strong>déployer une vraie application</strong> sur un cloud réel.
+  </p>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Prochaine étape</div>
+      <p>Ta mini-API et ton Dockerfile sont exactement le genre de projet que tu apprendras à déployer.
+      <strong><a href="app.html?m=devops" target="_blank" rel="noopener">Ouvre la Formation 01 — DevOps →</a></strong></p>
+    </div>
+  </div>
+
+  <p class="muted" style="text-align:center; margin-top:24px">
+    🎉 Félicitations, tu as terminé les <strong>Fondamentaux Tech</strong>&nbsp;! Tu n'es plus débutant·e — tu as
+    construit, testé et conteneurisé une vraie application. La suite t'attend&nbsp;: <strong>bienvenue dans le
+    DevOps.</strong>
+  </p>
+
+</article>

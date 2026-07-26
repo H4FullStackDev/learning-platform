@@ -7,45 +7,16 @@
 'use strict';
 
 /* --------------------------------------------------------------------
-   Source unique de vérité : la liste des chapitres.
-   Pilote la sidebar, le routing et le mapping vers /sections/*.html
+   Module courant : déterminé par ?m=<id> dans l'URL.
+   Le catalogue (catalog.js) fournit MODULES, getModule, ICONS, iconSvg.
    -------------------------------------------------------------------- */
-const CHAPTERS = [
-  { id: 'intro',        title: 'Introduction au DevOps',                        icon: 'rocket' },
-  { id: 'git',          title: 'Versioning & Collaboration (Git)',              icon: 'git-branch' },
-  { id: 'ci',           title: 'Intégration Continue (CI)',                     icon: 'refresh' },
-  { id: 'docker',       title: 'Conteneurisation (Docker)',                     icon: 'box' },
-  { id: 'kubernetes',   title: 'Orchestration (Kubernetes)',                    icon: 'wheel' },
-  { id: 'terraform',    title: 'Infrastructure as Code (Terraform)',            icon: 'layers' },
-  { id: 'gitops',       title: 'GitOps & Déploiement Continu (CD)',             icon: 'git-merge' },
-  { id: 'monitoring',   title: 'Monitoring & Observabilité',                    icon: 'activity' },
-  { id: 'security',     title: 'Sécurité DevSecOps',                            icon: 'shield' },
-  { id: 'architecture', title: 'Architecture de déploiement complète',          icon: 'grid' },
-  { id: 'digitalocean', title: 'Pratique : déploiement sur DigitalOcean',       icon: 'cloud' },
-  { id: 'scaling',      title: 'Scalabilité & Montée en charge',                icon: 'trending' },
-];
+const MODULE_ID = new URLSearchParams(location.search).get('m') || MODULES[0].id;
+const MODULE = getModule(MODULE_ID);
+const CHAPTERS = MODULE.chapters;
+const SECTION_BASE = MODULE.path;
 
-/* Icônes SVG (style Lucide, trait fin) --------------------------------- */
-const ICONS = {
-  'rocket':     '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
-  'git-branch': '<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
-  'refresh':    '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
-  'box':        '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><line x1="12" y1="22" x2="12" y2="12"/>',
-  'wheel':      '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/><path d="M12 4v4"/><path d="M12 16v4"/><path d="M4 12h4"/><path d="M16 12h4"/>',
-  'layers':     '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 12.18-9.17 4.16a2 2 0 0 1-1.66 0L2 12.18"/><path d="m22 17.18-9.17 4.16a2 2 0 0 1-1.66 0L2 17.18"/>',
-  'git-merge':  '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/>',
-  'activity':   '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
-  'shield':     '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
-  'grid':       '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
-  'cloud':      '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
-  'trending':   '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
-  'chevron':    '<path d="m9 18 6-6-6-6"/>',
-};
-
-function svg(name, cls) {
-  return `<svg width="18" height="18" class="${cls || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ''}</svg>`;
-}
-
+/* Le helper d'icônes vit dans catalog.js (partagé avec l'accueil). */
+const svg = (name, cls) => iconSvg(name, cls);
 const pad2 = (n) => String(n).padStart(2, '0');
 
 /* --------------------------------------------------------------------
@@ -66,19 +37,39 @@ const els = {
 };
 
 let currentIndex = -1;
-const visited = new Set();
+
+/* Progression persistée par module (localStorage) */
+const DONE_KEY = 'h4-done-' + MODULE.id;
+function loadDone() {
+  try { return new Set(JSON.parse(localStorage.getItem(DONE_KEY) || '[]')); }
+  catch (e) { return new Set(); }
+}
+const done = loadDone();
+function saveDone() {
+  try { localStorage.setItem(DONE_KEY, JSON.stringify([...done])); } catch (e) { /* ignore */ }
+}
+function markDone(id) {
+  if (!id || done.has(id)) return;
+  done.add(id);
+  saveDone();
+  updateChaptersProgress();
+  markSidebarDone();
+}
 
 /* --------------------------------------------------------------------
    1. Construction de la sidebar
    -------------------------------------------------------------------- */
+const LEVEL_LABEL = { debutant: 'Débutant', intermediaire: 'Intermédiaire', avance: 'Avancé' };
+
 function buildSidebar() {
   els.nav.innerHTML = CHAPTERS.map((ch, i) => `
     <button class="nav-item" data-id="${ch.id}" data-index="${i}">
       <span class="nav-item__icon">${svg(ch.icon)}</span>
       <span class="nav-item__body">
-        <span class="nav-item__num">CHAPITRE ${pad2(i + 1)}</span>
+        <span class="nav-item__num">CHAPITRE ${pad2(i + 1)}${ch.level ? `<span class="lvl-dot lvl-${ch.level}" title="${LEVEL_LABEL[ch.level]}"></span>` : ''}</span>
         <span class="nav-item__title">${ch.title}</span>
       </span>
+      <span class="nav-item__check" aria-hidden="true" title="Terminé">✓</span>
     </button>
   `).join('');
 
@@ -89,6 +80,15 @@ function buildSidebar() {
       else location.hash = id;      // déclenche hashchange -> loadChapter
       closeSidebar();
     });
+  });
+
+  markSidebarDone();
+}
+
+/* Coche les chapitres terminés dans la sidebar */
+function markSidebarDone() {
+  els.nav.querySelectorAll('.nav-item').forEach((btn) => {
+    btn.classList.toggle('is-done', done.has(btn.dataset.id));
   });
 }
 
@@ -110,7 +110,7 @@ async function loadChapter(id) {
   els.content.innerHTML = '<div class="loader"><div class="loader__spinner"></div><p>Chargement…</p></div>';
 
   try {
-    const res = await fetch(`sections/${id}.html`, { cache: 'no-cache' });
+    const res = await fetch(`${SECTION_BASE}/${id}.html`, { cache: 'no-cache' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const html = await res.text();
     els.content.innerHTML = html;
@@ -120,12 +120,11 @@ async function loadChapter(id) {
     renderError(err);
   }
 
-  visited.add(id);
   updateChaptersProgress();
   updatePager(index);
   window.scrollTo({ top: 0, behavior: 'auto' });
   updateReadingProgress();
-  document.title = `${pad2(index + 1)}. ${CHAPTERS[index].title} — Module DevOps`;
+  document.title = `${pad2(index + 1)}. ${CHAPTERS[index].title} — ${MODULE.title} · H4Techno Formations`;
 }
 
 /* Post-traitement après injection de contenu */
@@ -202,15 +201,18 @@ function initCopyButtons(root) {
 function updateReadingProgress() {
   const doc = document.documentElement;
   const scrollable = doc.scrollHeight - doc.clientHeight;
-  const pct = scrollable > 0 ? (doc.scrollTop / scrollable) * 100 : 0;
+  // Contenu plus court que l'écran -> considéré comme lu
+  const pct = scrollable > 0 ? (doc.scrollTop / scrollable) * 100 : 100;
   els.progressBar.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+  // Chapitre lu à 90 % -> marqué terminé
+  if (pct >= 90 && currentIndex >= 0) markDone(CHAPTERS[currentIndex].id);
 }
 
-/* Progression globale (chapitres visités) */
+/* Progression globale (chapitres terminés, persistée) */
 function updateChaptersProgress() {
-  const done = visited.size;
-  els.chaptersCount.textContent = `${done} / ${CHAPTERS.length}`;
-  els.chaptersFill.style.width = `${(done / CHAPTERS.length) * 100}%`;
+  const n = done.size;
+  els.chaptersCount.textContent = `${n} / ${CHAPTERS.length}`;
+  els.chaptersFill.style.width = `${(n / CHAPTERS.length) * 100}%`;
 }
 
 /* --------------------------------------------------------------------
@@ -315,16 +317,51 @@ function registerTerraformLanguage() {
   });
 }
 
-function init() {
-  registerTerraformLanguage();
-  buildSidebar();
-  updateChaptersProgress();
+/* Affiche le nom du module courant dans le shell */
+function setModuleBranding() {
+  const t = document.getElementById('module-title');
+  if (t) t.textContent = MODULE.title;
+  const mt = document.getElementById('mobile-title');
+  if (mt) mt.textContent = MODULE.title;
+  const cnt = document.getElementById('sidebar-count');
+  if (cnt) cnt.textContent = `${CHAPTERS.length} chapitres · ${MODULE.level}`;
+  const pr = document.getElementById('module-prereq');
+  if (pr) {
+    if (MODULE.prereq) {
+      const pm = getModule(MODULE.prereq);
+      pr.innerHTML = `Prérequis recommandé&nbsp;: <a href="app.html?m=${pm.id}">${pm.title}</a>`;
+      pr.hidden = false;
+    } else {
+      pr.hidden = true;
+    }
+  }
+}
 
-  // Synchronise l'état visuel du thème (défini par le script anti-flash du <head>)
+/* Synchronise le thème + branche les boutons de bascule */
+function initTheme() {
   applyTheme(currentTheme());
   document.querySelectorAll('[data-theme-toggle]').forEach((btn) => {
     btn.addEventListener('click', toggleTheme);
   });
+}
+
+function init() {
+  setModuleBranding();
+  initTheme();
+
+  // Module encore vide (formation à venir) : message et on s'arrête là.
+  if (!CHAPTERS.length) {
+    els.content.innerHTML = '<div class="fetch-error"><h2>Formation bientôt disponible</h2>'
+      + '<p>Ce module est en préparation. <a href="index.html">← Retour aux formations</a></p></div>';
+    if (els.pager) els.pager.hidden = true;
+    els.menuToggle.addEventListener('click', toggleSidebar);
+    els.backdrop.addEventListener('click', closeSidebar);
+    return;
+  }
+
+  registerTerraformLanguage();
+  buildSidebar();
+  updateChaptersProgress();
 
   els.menuToggle.addEventListener('click', toggleSidebar);
   els.backdrop.addEventListener('click', closeSidebar);

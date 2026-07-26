@@ -1,0 +1,124 @@
+<article class="chapter" data-chapter="incidents">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">06</span>
+      <span class="chapter-kicker">SRE</span>
+      <span class="level-tag level-tag--avance">Avancé</span>
+    </div>
+    <h1 class="chapter-title">Gestion des incidents</h1>
+    <p class="chapter-lead">Quand ça casse en production, l'improvisation coûte cher. Une réponse
+      structurée : des rôles clairs, une sévérité, et une priorité absolue — rétablir le service.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le moment de vérité.</strong> Un incident, c'est tout événement qui dégrade le service au point de
+    menacer un SLO. L'objectif n'est pas de comprendre <em>pourquoi</em> tout de suite — c'est de
+    <strong>faire cesser la douleur au plus vite</strong>, avec des rôles définis pour éviter le chaos.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Niveaux de sévérité</h2>
+  <p>Tous les incidents ne se valent pas. La sévérité détermine qui on mobilise et à quelle vitesse&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Sévérité</th><th>Impact</th><th>Réponse</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill pill--red">SEV1</span></td><td>Panne majeure, service down, perte de données</td><td>Mobilisation immédiate, 24/7</td></tr>
+        <tr><td><span class="pill pill--amber">SEV2</span></td><td>Dégradation importante, fonctionnalité clé touchée</td><td>Réponse rapide, astreinte</td></tr>
+        <tr><td><span class="pill pill--green">SEV3</span></td><td>Impact mineur, contournement possible</td><td>Heures ouvrées, ticket</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Les rôles pendant un incident</h2>
+  <p>
+    Sur un incident sérieux, on ne laisse pas cinq personnes taper des commandes en même temps. On répartit
+    des <strong>rôles clairs</strong> (inspirés de la gestion de crise)&nbsp;:
+  </p>
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card">
+          <h4>🎖️ Incident Commander (IC)</h4>
+          <p>Le <strong>chef d'orchestre</strong>. Il ne répare pas&nbsp;: il coordonne, décide, priorise. Une
+          seule voix qui pilote.</p>
+        </div>
+        <div class="spec-card">
+          <h4>🔧 Ops / Tech lead</h4>
+          <p>Celui qui <strong>agit sur le système</strong> (diagnostic, mitigation). Les mains dans le moteur,
+          sous la direction de l'IC.</p>
+        </div>
+        <div class="spec-card">
+          <h4>📣 Comms lead</h4>
+          <p>Gère la <strong>communication</strong> externe &amp; interne (page de statut, stakeholders), pour
+          que l'IC reste concentré.</p>
+        </div>
+        <div class="spec-card">
+          <h4>📝 Scribe</h4>
+          <p>Tient la <strong>timeline</strong> en direct (qui a fait quoi, quand). Indispensable pour le
+          postmortem à venir.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="muted">Sur un petit incident, une personne peut cumuler les rôles. Ce qui compte, c'est qu'ils soient <strong>explicitement attribués</strong> — surtout le rôle d'IC, la voix unique.</p>
+
+  <!-- ============================================================= -->
+  <h2>Le déroulé d'une réponse</h2>
+  <div class="arch">
+    <div class="arch__node" style="--c:#38bdf8">Détecter<small>alerte / signalement</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#8b5cf6">Déclarer<small>sévérité + rôles</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#ef4444">Mitiger<small>rétablir le service</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#10b981">Résoudre<small>+ postmortem</small></div>
+  </div>
+
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Mitiger d'abord, diagnostiquer ensuite</div>
+      <p>Le réflexe naturel — «&nbsp;<em>trouvons la cause</em>&nbsp;» — est une erreur en plein incident. La priorité
+      est de <strong>stopper l'hémorragie</strong>&nbsp;: rollback du dernier déploiement, bascule sur une région
+      saine, activation d'un mode dégradé. On comprend le <em>pourquoi</em> <strong>après</strong>, à froid, dans
+      le postmortem. Un rollback en 2&nbsp;min bat une enquête d'une heure.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Communiquer pendant la crise</h2>
+  <ul>
+    <li><strong>Un canal unique</strong> — un salon dédié (war room / Slack) où toute la coordination se fait, tracée.</li>
+    <li><strong>Une page de statut</strong> — informer les utilisateurs, honnêtement&nbsp;: reconnaître, donner une cadence de mises à jour, éviter le silence.</li>
+    <li><strong>Des points réguliers</strong> — l'IC synchronise à intervalle fixe («&nbsp;point dans 15&nbsp;min&nbsp;»), pour que chacun sache où on en est.</li>
+    <li><strong>Escalader sans honte</strong> — bloqué&nbsp;? on appelle du renfort tôt. Ce n'est pas un échec, c'est la procédure.</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo incident</div>
+      <ul>
+        <li><strong>Un Incident Commander unique</strong> — une voix qui coordonne, pas cinq mains qui bricolent.</li>
+        <li><strong>Mitiger avant de diagnostiquer</strong> — rétablir le service d'abord (rollback, bascule, mode dégradé).</li>
+        <li><strong>Classer par sévérité</strong> — pour mobiliser la bonne réponse au bon moment.</li>
+        <li><strong>Tracer la timeline en direct</strong> — le scribe prépare le postmortem.</li>
+        <li><strong>Communiquer, ne pas se taire</strong> — statut public + points réguliers.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    L'incident est résolu. Le travail le plus précieux commence maintenant&nbsp;: en <strong>apprendre</strong>,
+    sans blâmer. C'est l'objet du <strong>postmortem</strong>.
+  </p>
+
+</article>

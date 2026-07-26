@@ -1,0 +1,179 @@
+<article class="chapter" data-chapter="git">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">02</span>
+      <span class="chapter-kicker">Fondamentaux Tech</span>
+      <span class="level-tag level-tag--debutant">Débutant</span>
+    </div>
+    <h1 class="chapter-title">Git &amp; le versioning</h1>
+    <p class="chapter-lead">Git, c'est la machine à remonter le temps de ton code : chaque étape est
+      sauvegardée et tu peux toujours revenir en arrière. C'est l'outil que tu utiliseras tous les jours.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le problème que ça règle.</strong> Tu connais sûrement le
+    <code>rapport_final_v2_vraiment_final_CORRIGÉ.docx</code>&nbsp;? Git supprime ce chaos&nbsp;: il garde
+    <strong>l'historique complet</strong> de ton projet, te laisse <strong>revenir à n'importe quel moment</strong>,
+    et permet à <strong>plusieurs personnes</strong> de travailler ensemble sans s'écraser.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>C'est quoi «&nbsp;versionner&nbsp;»&nbsp;?</h2>
+  <p>
+    <strong>Versionner</strong>, c'est enregistrer des <strong>points de sauvegarde</strong> de ton projet au fil
+    du temps — comme les <em>sauvegardes dans un jeu vidéo</em>. Chaque sauvegarde s'appelle un
+    <strong>commit</strong> : une «&nbsp;photo&nbsp;» de tous tes fichiers à un instant donné, avec un petit message
+    qui décrit ce que tu as fait.
+  </p>
+  <p><strong>Git</strong> est l'outil qui gère ces sauvegardes sur ta machine. <strong>GitHub</strong> (qu'on verra plus bas) les héberge sur le cloud.</p>
+
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Installer &amp; configurer Git (une seule fois)</div>
+      <p>Installe Git depuis <a href="https://git-scm.com" target="_blank" rel="noopener">git-scm.com</a> (sur
+      Windows, ça installe aussi <strong>Git Bash</strong>, le terminal du chapitre 1). Puis dis-lui qui tu es —
+      ce nom apparaîtra sur tes sauvegardes&nbsp;:</p>
+<pre><code class="language-bash">git config --global user.name "Ton Nom"
+git config --global user.email "toi@exemple.com"</code></pre>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Le workflow de base : 3 zones</h2>
+  <p>
+    Enregistrer un commit se fait en <strong>deux temps</strong>. Imagine que tu prépares un colis&nbsp;: d'abord
+    tu <strong>mets les objets dans le carton</strong> (<code>git add</code>), puis tu <strong>l'expédies avec une
+    étiquette</strong> (<code>git commit</code>). Git a donc trois «&nbsp;zones&nbsp;»&nbsp;:
+  </p>
+  <div class="arch">
+    <div class="arch__node" style="--c:#f59e0b">Ton dossier<small>tu modifies</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg><code>git add</code></div>
+    <div class="arch__node" style="--c:#38bdf8">Le carton<small>staging</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg><code>git commit</code></div>
+    <div class="arch__node" style="--c:#10b981">L'historique<small>sauvegardé ✓</small></div>
+  </div>
+
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Ton premier dépôt &amp; ton premier commit <span class="exercise__tag">Exercice</span>
+    </div>
+    <p>Dans ton terminal, reprends le dossier du chapitre 1 (ou crées-en un)&nbsp;:</p>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">cd ~/mon-premier-projet    # va dans ton projet
+git init                   # transforme le dossier en dépôt Git
+git status                 # que voit Git ? (des fichiers "non suivis")
+git add .                  # mets TOUT dans le carton (le "." = tout)
+git commit -m "Premier commit"   # expédie avec une étiquette
+git log --oneline          # regarde ton historique : ta sauvegarde est là !</code></pre>
+    </div>
+    <p><strong>Résultat attendu&nbsp;:</strong> <code>git log --oneline</code> affiche une ligne avec un code
+    (le <em>hash</em>) et ton message « Premier commit ». 🎉 Ton projet a maintenant une mémoire.</p>
+  </div>
+
+  <p>Les commandes essentielles à retenir&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Commande</th><th>Ce qu'elle fait</th></tr></thead>
+      <tbody>
+        <tr><td><code>git status</code></td><td>Où j'en suis&nbsp;? (ta commande la plus utilisée)</td></tr>
+        <tr><td><code>git add &lt;fichier&gt;</code></td><td>Met un fichier dans le carton (ou <code>git add .</code> pour tout)</td></tr>
+        <tr><td><code>git commit -m "message"</code></td><td>Enregistre une sauvegarde</td></tr>
+        <tr><td><code>git log</code></td><td>Affiche l'historique des commits</td></tr>
+        <tr><td><code>git diff</code></td><td>Montre ce que tu as changé depuis le dernier commit</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Les branches</h2>
+  <p>
+    Une <strong>branche</strong> est une <strong>ligne de travail parallèle</strong> — un brouillon où tu peux
+    tester une idée <em>sans toucher</em> à ta version principale (<code>main</code>). Quand ça marche, tu
+    <strong>fusionnes</strong> (<em>merge</em>) ton brouillon dans <code>main</code>. Sinon, tu jettes la branche,
+    et <code>main</code> n'a jamais été abîmé.
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">git switch -c nouvelle-idee   # crée une branche ET va dedans
+# ... tu modifies, tu add, tu commit sur cette branche ...
+git switch main               # reviens sur la branche principale
+git merge nouvelle-idee       # fusionne ton travail dans main</code></pre>
+  </div>
+  <p class="muted">On approfondit énormément les branches (stratégies, conflits) dans la <a href="app.html?m=devops#git" target="_blank" rel="noopener">Formation DevOps</a>. Ici, retiens juste le principe : <strong>brancher pour expérimenter, fusionner quand c'est prêt</strong>.</p>
+
+  <!-- ============================================================= -->
+  <h2>GitHub : ton code dans le cloud</h2>
+  <p>
+    Jusqu'ici, tout vit sur <em>ta</em> machine. <strong>GitHub</strong> héberge tes dépôts <strong>en
+    ligne</strong> : une sauvegarde de sécurité, un moyen de travailler à plusieurs, et ta vitrine publique
+    (les recruteurs le regardent&nbsp;!). Le lien entre ta machine et GitHub&nbsp;:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Commande</th><th>Ce qu'elle fait</th></tr></thead>
+      <tbody>
+        <tr><td><code>git clone &lt;url&gt;</code></td><td>Télécharge un dépôt existant depuis GitHub</td></tr>
+        <tr><td><code>git push</code></td><td><strong>Envoie</strong> tes commits locaux vers GitHub</td></tr>
+        <tr><td><code>git pull</code></td><td><strong>Récupère</strong> les commits des autres depuis GitHub</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Publie ton projet sur GitHub <span class="exercise__tag">Exercice</span>
+    </div>
+    <p>1. Crée un compte gratuit sur <a href="https://github.com" target="_blank" rel="noopener">github.com</a>. 2. Clique «&nbsp;New repository&nbsp;», nomme-le <code>mon-premier-projet</code>, valide. 3. GitHub te donne des commandes&nbsp;: colle-les dans ton terminal (elles ressemblent à ça)&nbsp;:</p>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">git remote add origin https://github.com/ton-pseudo/mon-premier-projet.git
+git branch -M main
+git push -u origin main    # envoie ton code sur GitHub</code></pre>
+    </div>
+    <p><strong>Résultat attendu&nbsp;:</strong> rafraîchis la page GitHub — tes fichiers y sont&nbsp;! Ton code est
+    maintenant sauvegardé dans le cloud. ✅</p>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Travailler à plusieurs : la Pull Request</h2>
+  <p>
+    Quand plusieurs personnes contribuent, on ne pousse pas directement sur <code>main</code>. Le workflow
+    simple&nbsp;:
+  </p>
+  <ol>
+    <li>Tu crées une <strong>branche</strong> pour ta modification.</li>
+    <li>Tu la <strong>pousses</strong> sur GitHub.</li>
+    <li>Tu ouvres une <strong>Pull Request (PR)</strong> : «&nbsp;voici ce que je propose d'ajouter à <code>main</code>&nbsp;».</li>
+    <li>Un collègue <strong>relit</strong> (code review) et commente.</li>
+    <li>Une fois validé, on <strong>fusionne</strong> la PR dans <code>main</code>.</li>
+  </ol>
+  <p class="muted">C'est la base de la collaboration moderne. La Formation DevOps y consacre un chapitre entier (revue de code, protections de branche…).</p>
+
+  <!-- ============================================================= -->
+  <h2>Erreurs fréquentes</h2>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Les blocages classiques</div>
+      <ul>
+        <li><code>fatal: not a git repository</code> — tu n'es pas dans un dépôt. Fais <code>git init</code>, ou vérifie que tu es dans le bon dossier (<code>pwd</code>).</li>
+        <li><code>nothing to commit, working tree clean</code> — il n'y a rien de nouveau à sauvegarder (tu n'as rien modifié, ou tu as oublié <code>git add</code>).</li>
+        <li><code>Author identity unknown</code> — tu n'as pas configuré ton nom/email (voir plus haut, <code>git config</code>).</li>
+        <li><strong>push rejeté</strong> (<em>updates were rejected</em>) — quelqu'un a poussé avant toi. Fais d'abord <code>git pull</code>, puis <code>git push</code>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Ton code est versionné et sauvegardé — un réflexe pour toute ta carrière. Il est temps d'écrire du <em>vrai</em>
+    code&nbsp;: cap sur ton <strong>premier langage, Python</strong>.
+  </p>
+
+</article>
