@@ -78,18 +78,19 @@ La base PostgreSQL, elle, reste allumée (stateful).
 | [0001](docs/devops/adr/0001-cloud-et-ci.md) | DigitalOcean + GitHub Actions + PG managée + DOCR | ✅ acté |
 | [0002](docs/devops/adr/0002-droplet-avant-kubernetes.md) | Phase A sur Droplet, puis phase B sur DOKS | ✅ acté |
 | [0003](docs/devops/adr/0003-plan-de-domaines.md) | Sous-domaines séparés `api.` / `app.` | 🟡 proposé |
+| [0004](docs/devops/adr/0004-strategie-git.md) | GitHub Flow, squash-merge, protection adaptée solo, commits signés | ✅ acté |
 
 ---
 
 ## 5. État d'avancement
 
-**Palier en cours : 1 — Révocation des secrets** (T2 en attente de décision)
+**Palier en cours : 2 — Git** (T3 : protection de branche et signature)
 
 | # | Palier | Chapitre | Phase | Statut |
 |---|---|---|---|---|
 | 0 | État des lieux & architecture cible | 01, 10 | — | ✅ |
-| 1 | 🔴 Révocation des secrets & hygiène du dépôt | 09·D | — | 🔄 T3 en cours |
-| 2 | Git : branches, PR, protection, commits conventionnels | 02 | — | ⬜ |
+| 1 | Révocation des secrets & hygiène du dépôt | 09·D | — | ✅ |
+| 2 | Git : branches, PR, protection, commits conventionnels | 02 | — | 🔄 T3 en cours |
 | 3 | App déployable : 12-factor, actuator, probes | 10 | — | ⬜ |
 | 4 | Docker : multi-stage, layered jar, non-root | 04 | — | ⬜ |
 | 5 | Compose local : API + Postgres + SMTP factice | 04 | — | ⬜ |
@@ -105,13 +106,21 @@ La base PostgreSQL, elle, reste allumée (stateful).
 | 12 | Scaling & durcissement : HPA, rate limiting, checklist | 12, 09 | B | ⬜ |
 | 13 | Frontend | — | A puis B | ⬜ |
 
-### Palier 1 — reste à faire
-- [ ] Supprimer l'app Koyeb si elle existe encore (détient une copie des secrets)
-- [ ] Régénérer la clé SMTP Brevo — **toujours active**
-- [ ] Régénérer le secret JWT (`openssl rand -base64 64 | tr -d '\n'`) — **toujours actif**
-- [x] ~~Mot de passe PostgreSQL Neon~~ — révoqué, compte supprimé
-- [ ] Trancher : réécriture de l'historique git ou non (recommandation : au palier 2)
-- [ ] Nettoyage du dépôt (`.gitignore`, `.env.example`, retrait de `.env`) — **après** révocation
+### Palier 1 — terminé le 30 juillet 2026
+- [x] Base Neon supprimée (compte clos) → credential révoqué
+- [x] Clé SMTP Brevo régénérée
+- [x] Secret JWT régénéré, stocké hors du dépôt (à câbler au palier 3)
+- [x] Aucune app Koyeb résiduelle
+- [x] `.env` retiré du suivi git, `.gitignore` durci, `.env.example` créé
+- [x] Historique réécrit (`git filter-repo`) et force-push — **tous les SHA du dépôt ont changé**
+
+### Palier 2 — reste à faire
+- [x] Réécriture de l'historique (faite avant la protection, l'ordre était impératif)
+- [ ] Signature SSH des commits (clé à enregistrer **une 2ᵉ fois** sur GitHub en `Signing Key`)
+- [ ] Protection de `main` : PR obligatoire, 0 approbation, historique linéaire, pas de force-push
+- [ ] Merge en squash uniquement, suppression auto des branches fusionnées
+- [ ] PR de test prouvant que le push direct sur `main` est refusé
+- [ ] `required_status_checks` : **à compléter au palier 7**, quand la CI existera
 
 ---
 
@@ -119,7 +128,7 @@ La base PostgreSQL, elle, reste allumée (stateful).
 
 | Fichier | Problème | Palier |
 |---|---|---|
-| [.env](.env) | Versionné avec secrets vivants (commit `3f8916f`, poussé) | 1 |
+| ~~`.env`~~ | ~~Versionné avec secrets vivants~~ — **résolu au palier 1** : secrets révoqués, fichier retiré, historique réécrit | ✅ |
 | [application.properties:18](src/main/resources/application.properties#L18) | Secret JWT en dur, **identique à la prod** | 3 |
 | [application.properties:12](src/main/resources/application.properties#L12) | `ddl-auto=update` + Flyway actif = deux autorités sur le schéma | 3 |
 | [pom.xml](pom.xml) | `spring-boot-starter-actuator` absent alors que les probes sont configurées → 404 | 3 |

@@ -13,9 +13,11 @@ découpage en deux phases.
 ### Ce qu'on a trouvé
 
 **Critique — secrets exposés.** Le fichier `.env` est versionné et poussé sur GitHub
-(commit `3f8916f`). Il contient en clair : mot de passe PostgreSQL Neon, mot de passe SMTP Brevo,
-secret JWT. Aggravant : le même secret JWT figure dans `application.properties:18`, donc
-**identique en dev et en prod** — qui lit ce fichier peut forger un token admin valide.
+(commit « configuration de de l'environement » — SHA d'origine `3f8916f`, devenu caduc après la
+réécriture d'historique du 30 juillet). Il contient en clair : mot de passe PostgreSQL Neon, mot de
+passe SMTP Brevo, secret JWT. Aggravant : le même secret JWT figure dans
+`application.properties:18`, donc **identique en dev et en prod** — qui lit ce fichier peut forger
+un token admin valide.
 
 **Bugs réels, pas du style :**
 
@@ -117,8 +119,54 @@ Que fait-on de l'historique git ?
 **Recommandation :** les deux, séparés dans le temps. Rotation aujourd'hui (urgent, suffit à te
 mettre en sécurité), réécriture au palier 2 quand on reprendra toute la configuration Git.
 
-### T4 — preuve de sortie
-- [ ] L'ancien mot de passe SMTP est refusé par Brevo
-- [ ] Un token signé avec l'ancien secret JWT est rejeté par l'API
-- [ ] `git ls-files` ne renvoie plus `.env`
-- [ ] `.env.example` documente toutes les variables, sans aucune valeur
+### T4 — preuve de sortie ✅
+
+Palier clos le 30 juillet 2026.
+
+```
+git ls-files | grep -i env              →  .env.example   (seul)
+git log --all --oneline -- .env         →  vide
+git rev-list --all --objects | grep env →  .env.example   (seul)
+.env sur disque                         →  supprimé
+```
+
+Réécriture faite avec `git filter-repo --invert-paths --path .env --force`, puis force-push.
+
+**Observation notable :** la réécriture a renuméroté **la totalité de l'historique**, y compris les
+commits antérieurs à l'introduction du `.env` — `ace839e` est devenu `1f03c1b`, `386019e` est devenu
+`8ae383c`. La règle pratique à retenir est donc plus large que prévu : après un `filter-repo`,
+**considère que tous les SHA du dépôt sont morts**, pas seulement ceux qui suivent le commit fautif.
+
+Conséquence concrète : les références à `3f8916f` dans cette documentation pointaient vers un commit
+inexistant. C'est exactement le coût réel d'une réécriture d'historique — elle invalide toute
+référence à un SHA, dans la doc, les tickets, les logs de CI et les enregistrements de déploiement.
+C'est la raison pour laquelle on ne le fait quasiment jamais en dehors du cas d'une fuite de secret.
+
+### Ce qui n'a pas été fait
+
+La sauvegarde `git clone --mirror` prévue à l'étape 1 n'a pas été créée. L'opération s'est bien
+passée, donc sans conséquence — mais le filet de sécurité n'était pas là pendant l'opération la plus
+irréversible du parcours. À ne pas reproduire au palier 8A, où un `terraform destroy` mal ciblé n'a
+pas de `Ctrl+Z`.
+
+---
+
+## Palier 2 — Git (en cours)
+
+### Décisions
+[ADR-0004](adr/0004-strategie-git.md) — GitHub Flow, squash-merge exclusif, protection de `main`
+adaptée au solo (0 approbation requise), commits signés en SSH.
+
+**L'idée du palier :** `main` n'est pas une branche, c'est un contrat — *tout ce qui est dessus est
+déployable en production à tout instant, sans vérification humaine préalable*. La protection de
+branche est le mécanisme qui transforme ce contrat en garantie technique plutôt qu'en promesse.
+
+**Le sequencing :**
+```
+   protection SANS CI   →  une règle que personne ne vérifie
+   CI SANS protection   →  un contrôle que personne n'applique
+   les deux             →  une gate
+```
+La protection est donc posée maintenant avec zéro `required status check`. On revient la compléter
+au palier 7, quand la CI existera. Ce n'est pas un travail à moitié fait : c'est l'ordre de
+construction.
