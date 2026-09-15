@@ -1,0 +1,113 @@
+<article class="chapter" data-chapter="chaos">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">09</span>
+      <span class="chapter-kicker">SRE</span>
+      <span class="level-tag level-tag--avance">Avancé</span>
+    </div>
+    <h1 class="chapter-title">Résilience &amp; Chaos Engineering</h1>
+    <p class="chapter-lead">Dans un système distribué, tout finit par tomber. Plutôt que d'espérer que non,
+      on conçoit pour la panne — et on la provoque volontairement pour découvrir les faiblesses avant qu'elles
+      ne frappent.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le changement de posture.</strong> On ne demande plus «&nbsp;<em>est-ce que ça va tomber&nbsp;?</em>&nbsp;»
+    mais «&nbsp;<em>quand ça tombera, que se passe-t-il&nbsp;?</em>&nbsp;». La <strong>résilience</strong>, c'est la
+    capacité à encaisser les pannes partielles sans s'effondrer. Le <strong>chaos engineering</strong>, c'est la
+    vérifier <em>pour de vrai</em>.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Concevoir pour la panne</h2>
+  <p>La règle de base des systèmes distribués&nbsp;: <strong>chaque composant tombera un jour</strong>. On conçoit en le supposant&nbsp;:</p>
+  <ul>
+    <li><strong>Redondance, pas de SPOF</strong> — aucun point unique de défaillance&nbsp;: plusieurs instances, plusieurs zones.</li>
+    <li><strong>Dégradation gracieuse</strong> — mieux vaut un service partiel (résultats en cache, fonctionnalité désactivée) qu'une page d'erreur.</li>
+    <li><strong>Isolation des pannes</strong> — une panne d'un service ne doit pas se propager en cascade.</li>
+  </ul>
+  <p>Les <strong>patterns de résilience</strong> (vus dans <a href="app.html?m=system-design#patterns" target="_blank" rel="noopener">System Design</a> et <a href="app.html?m=devops#scaling" target="_blank" rel="noopener">DevOps</a>) sont les outils concrets&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Pattern</th><th>Rôle</th></tr></thead>
+      <tbody>
+        <tr><td>Timeout</td><td>Ne jamais attendre indéfiniment un service lent.</td></tr>
+        <tr><td>Retry + backoff</td><td>Réessayer avec délai croissant &amp; jitter.</td></tr>
+        <tr><td>Circuit breaker</td><td>Couper vers un service en panne, échouer vite.</td></tr>
+        <tr><td>Bulkhead</td><td>Cloisonner les ressources pour éviter la contamination.</td></tr>
+        <tr><td>Graceful degradation</td><td>Répondre en mode dégradé plutôt qu'échouer.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Le chaos engineering</h2>
+  <p>
+    Concevoir résilient, c'est bien&nbsp;; le <strong>prouver</strong>, c'est mieux. Le chaos engineering
+    <strong>injecte des pannes volontairement</strong> — souvent en production — pour découvrir les faiblesses
+    <em>avant</em> qu'un vrai incident ne les révèle. C'est Netflix qui l'a popularisé avec <strong>Chaos
+    Monkey</strong>, un outil qui tue des instances au hasard, en pleine journée.
+  </p>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Pourquoi casser exprès&nbsp;?</div>
+      <p>Parce qu'un système «&nbsp;jamais testé en panne&nbsp;» <em>est</em> en panne — vous ne le savez juste pas
+      encore. En provoquant les défaillances régulièrement et à petite dose, on force les équipes à construire de
+      la vraie résilience, et on transforme la panne en <strong>non-événement</strong> plutôt qu'en catastrophe
+      surprise à 3&nbsp;h du matin.</p>
+    </div>
+  </div>
+
+  <h3>La méthode</h3>
+  <div class="arch">
+    <div class="arch__node" style="--c:#38bdf8">Hypothèse<small>« si X tombe, le SLO tient »</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#ef4444">Injecter<small>panne contrôlée</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#f59e0b">Observer<small>SLO &amp; golden signals</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#10b981">Apprendre<small>corriger la faille</small></div>
+  </div>
+  <ul>
+    <li><strong>Types de pannes injectées</strong> — tuer une instance, ajouter de la latence, saturer le CPU, couper le réseau (partition), rendre une dépendance indisponible.</li>
+    <li><strong>Maîtriser le « blast radius »</strong> — commencer petit (un pod, 1&nbsp;% du trafic), avec un bouton d'arrêt. On augmente la portée à mesure que la confiance grandit.</li>
+    <li><strong>Game days</strong> — des exercices planifiés où l'équipe s'entraîne à répondre à une panne simulée (et teste ses runbooks &amp; son astreinte).</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Un mot sur la reprise après sinistre (DR)</h2>
+  <p>
+    Au-delà des pannes partielles, il faut prévoir le pire (perte d'une région, d'une base). On définit deux
+    objectifs&nbsp;: le <strong>RTO</strong> (temps max pour rétablir le service) et le <strong>RPO</strong>
+    (perte de données max tolérée). Ils dictent la stratégie&nbsp;: sauvegardes régulières, réplication
+    multi-région, et surtout des <strong>restaurations testées</strong> — une sauvegarde jamais restaurée n'est
+    qu'une hypothèse.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo résilience</div>
+      <ul>
+        <li><strong>Supposer la panne</strong> — redondance, pas de SPOF, dégradation gracieuse.</li>
+        <li><strong>Patterns de résilience partout</strong> — timeouts, retries, circuit breakers.</li>
+        <li><strong>Tester en cassant</strong> — chaos engineering, à petit blast radius d'abord.</li>
+        <li><strong>Game days réguliers</strong> — entraîner l'équipe, valider runbooks &amp; astreinte.</li>
+        <li><strong>DR avec restaurations testées</strong> — RTO/RPO définis, sauvegardes éprouvées.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Le système est robuste et éprouvé. Dernier maillon&nbsp;: lui donner assez de ressources et le faire évoluer
+    sans risque — <strong>capacity planning &amp; déploiements sûrs</strong>.
+  </p>
+
+</article>

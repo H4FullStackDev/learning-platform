@@ -1,0 +1,206 @@
+<article class="chapter" data-chapter="terminal">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">01</span>
+      <span class="chapter-kicker">Fondamentaux Tech</span>
+      <span class="level-tag level-tag--debutant">Débutant</span>
+    </div>
+    <h1 class="chapter-title">Le terminal &amp; Linux</h1>
+    <p class="chapter-lead">Bienvenue&nbsp;! On commence par l'outil de base de tout métier tech : le terminal.
+      Tu n'en as jamais ouvert un&nbsp;? Parfait — c'est exactement pour toi que ce chapitre est écrit.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Rassure-toi.</strong> Le terminal fait peur au début (un écran noir, du texte…), mais c'est juste
+    une <em>autre façon de parler à ton ordinateur</em> : au lieu de <strong>cliquer</strong> sur des icônes,
+    tu <strong>écris</strong> ce que tu veux faire. On va y aller pas à pas, avec des exercices à taper toi-même.
+    À la fin, tu seras à l'aise pour naviguer et manipuler des fichiers.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>D'abord, c'est quoi un système d'exploitation&nbsp;?</h2>
+  <p>
+    Un <strong>système d'exploitation</strong> (ou <strong>OS</strong>, pour <em>Operating System</em>) est le
+    programme qui fait tourner ton ordinateur : il gère l'écran, le clavier, les fichiers, les autres
+    programmes. C'est le <strong>chef d'orchestre</strong> de la machine. Tu en utilises déjà un&nbsp;:
+  </p>
+  <ul>
+    <li><strong>Windows</strong> — le plus répandu sur les PC.</li>
+    <li><strong>macOS</strong> — sur les Mac.</li>
+    <li><strong>Linux</strong> — gratuit, open-source, et… <strong>ce qui fait tourner la quasi-totalité des serveurs du web</strong>.</li>
+  </ul>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Pourquoi Linux nous intéresse</div>
+      <p>Quand ton code partira «&nbsp;en production&nbsp;» (sur un serveur, dans le cloud), il tournera presque
+      toujours sur <strong>Linux</strong>. Et sur un serveur, il n'y a <em>pas d'écran ni de souris</em> : on le
+      pilote… au terminal. Apprendre le terminal, c'est donc apprendre à parler la langue des serveurs.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Le terminal, c'est quoi&nbsp;?</h2>
+  <p>
+    Le <strong>terminal</strong> (aussi appelé <em>console</em> ou <em>ligne de commande</em>) est une fenêtre où
+    tu tapes des <strong>commandes</strong> — des ordres en texte — que l'ordinateur exécute. Une
+    <strong>commande</strong>, c'est un mot (souvent une abréviation en anglais) suivi éventuellement d'options
+    et d'un nom de fichier.
+  </p>
+  <p>Les développeurs l'adorent parce qu'il est <strong>précis</strong>, <strong>rapide</strong>, <strong>automatisable</strong> et <strong>identique partout</strong> (y compris sur les serveurs sans écran).</p>
+
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Comment ouvrir un terminal</div>
+      <ul>
+        <li><strong>Windows</strong> — installe <strong>Git Bash</strong> (fourni avec Git, chapitre suivant) et ouvre-le. Il te donne un terminal «&nbsp;façon Linux&nbsp;», idéal pour suivre ce cours.</li>
+        <li><strong>macOS</strong> — ouvre l'application <strong>Terminal</strong> (via Spotlight : <code>Cmd + Espace</code>, puis tape «&nbsp;terminal&nbsp;»).</li>
+        <li><strong>Linux</strong> — cherche <strong>Terminal</strong> dans tes applications (souvent <code>Ctrl + Alt + T</code>).</li>
+      </ul>
+      <p>Tu verras une ligne qui se termine par <code>$</code> (ou <code>%</code>) et un curseur qui clignote : c'est le <strong>prompt</strong>, il attend ta commande.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Se repérer : le système de fichiers</h2>
+  <p>
+    Tes fichiers sont rangés dans des <strong>dossiers</strong> (aussi appelés <em>répertoires</em>), eux-mêmes
+    dans d'autres dossiers. Ça forme une <strong>arborescence</strong> — imagine des <strong>classeurs dans des
+    classeurs</strong>. À tout moment, tu te trouves «&nbsp;dans&nbsp;» un dossier : ton <strong>dossier courant</strong>.
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">une arborescence (exemple)</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">/                     &lt;- la racine (le tout début)
+└── home/
+    └── alice/        &lt;- ton dossier personnel (~)
+        ├── Documents/
+        ├── Images/
+        └── projets/
+            └── mon-site/</code></pre>
+  </div>
+  <p>Trois commandes pour se déplacer là-dedans&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Commande</th><th>Ce qu'elle fait</th><th>Mémo</th></tr></thead>
+      <tbody>
+        <tr><td><code>pwd</code></td><td>Affiche où tu es (le chemin du dossier courant)</td><td><em>print working directory</em></td></tr>
+        <tr><td><code>ls</code></td><td>Liste ce qu'il y a dans le dossier courant</td><td><em>list</em></td></tr>
+        <tr><td><code>cd &lt;dossier&gt;</code></td><td>Entre dans un dossier (<em>change directory</em>)</td><td><code>cd ..</code> remonte d'un cran</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      À toi de jouer <span class="exercise__tag">Exercice</span>
+    </div>
+    <p>Ouvre ton terminal et tape ces commandes, une par une (valide avec <strong>Entrée</strong>)&nbsp;:</p>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">pwd            # où suis-je ?
+ls             # qu'est-ce qu'il y a ici ?
+cd ~           # va dans mon dossier personnel
+ls             # regarde ce qu'il contient
+cd ..          # remonte d'un dossier
+pwd            # vérifie : le chemin a changé</code></pre>
+    </div>
+    <p><strong>Résultat attendu&nbsp;:</strong> <code>pwd</code> affiche un chemin comme <code>/home/alice</code> (ou <code>/c/Users/alice</code> sur Git Bash), <code>ls</code> affiche la liste de tes dossiers, et après <code>cd ..</code> le chemin s'est bien raccourci. ✅ Bravo, tu navigues&nbsp;!</p>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Créer, copier, déplacer, supprimer</h2>
+  <p>Maintenant, agissons sur les fichiers et dossiers&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Commande</th><th>Ce qu'elle fait</th></tr></thead>
+      <tbody>
+        <tr><td><code>mkdir &lt;nom&gt;</code></td><td>Crée un dossier (<em>make directory</em>)</td></tr>
+        <tr><td><code>touch &lt;fichier&gt;</code></td><td>Crée un fichier vide</td></tr>
+        <tr><td><code>cp &lt;source&gt; &lt;destination&gt;</code></td><td>Copie un fichier (<em>copy</em>)</td></tr>
+        <tr><td><code>mv &lt;source&gt; &lt;destination&gt;</code></td><td>Déplace <em>ou</em> renomme (<em>move</em>)</td></tr>
+        <tr><td><code>rm &lt;fichier&gt;</code></td><td>Supprime un fichier (<em>remove</em>)</td></tr>
+        <tr><td><code>cat &lt;fichier&gt;</code></td><td>Affiche le contenu d'un fichier</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Crée ta première arborescence <span class="exercise__tag">Exercice</span>
+    </div>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">cd ~                       # on part du dossier personnel
+mkdir mon-premier-projet   # crée un dossier
+cd mon-premier-projet      # entre dedans
+touch notes.txt            # crée un fichier vide
+ls                         # -> notes.txt
+mv notes.txt journal.txt   # renomme le fichier
+cp journal.txt sauvegarde.txt  # copie
+ls                         # -> journal.txt  sauvegarde.txt</code></pre>
+    </div>
+    <p><strong>Résultat attendu&nbsp;:</strong> le dernier <code>ls</code> affiche deux fichiers : <code>journal.txt</code> et <code>sauvegarde.txt</code>. Tu viens de créer, renommer et copier — sans une seule souris&nbsp;! 🎉</p>
+  </div>
+
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Attention avec <code>rm</code> !</div>
+      <p>Dans le terminal, la suppression est <strong>définitive</strong> : pas de corbeille, pas de
+      «&nbsp;annuler&nbsp;». <code>rm fichier.txt</code> efface le fichier pour de bon. Et <code>rm -r dossier</code>
+      efface un dossier <em>et tout ce qu'il contient</em>. <strong>Vérifie toujours deux fois</strong> avant de
+      valider — surtout ne tape jamais <code>rm -rf /</code> (ça tenterait d'effacer tout le système).</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Un aperçu : permissions &amp; processus</h2>
+  <p>Deux notions que tu croiseras souvent — juste de quoi savoir de quoi on parle&nbsp;:</p>
+  <ul>
+    <li><strong>Les permissions</strong> — chaque fichier dit qui a le droit de le <strong>lire</strong> (r), l'<strong>écrire</strong> (w) ou l'<strong>exécuter</strong> (x). Tape <code>ls -l</code> : la colonne de gauche (ex. <code>-rw-r--r--</code>) décrit ces droits. C'est ce qui empêche n'importe qui de modifier n'importe quoi.</li>
+    <li><strong>Les processus</strong> — chaque programme qui tourne est un <strong>processus</strong>, avec un numéro (PID). <code>ps</code> ou <code>top</code> les listent. On y reviendra ; retiens juste : «&nbsp;un programme en cours d'exécution = un processus&nbsp;».</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Quelques réflexes qui changent la vie</h2>
+  <ul>
+    <li><strong>La touche <kbd>Tab</kbd></strong> — complète automatiquement un nom de fichier/dossier. Tape <code>cd mon-pre</code> puis <kbd>Tab</kbd> : il complète tout seul. Un gain de temps énorme et zéro faute de frappe.</li>
+    <li><strong>La flèche ↑</strong> — rappelle les commandes précédentes (pas besoin de retaper).</li>
+    <li><strong><code>clear</code></strong> — nettoie l'écran quand c'est trop chargé.</li>
+    <li><strong><code>&lt;commande&gt; --help</code></strong> — affiche l'aide d'une commande (ex. <code>ls --help</code>). Ton meilleur ami pour découvrir les options.</li>
+    <li><strong>Le joker <code>*</code></strong> — remplace «&nbsp;n'importe quoi&nbsp;» : <code>ls *.txt</code> liste tous les fichiers qui finissent par <code>.txt</code>.</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Erreurs fréquentes</h2>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Les messages que tu vas voir (et comment réagir)</div>
+      <ul>
+        <li><code>command not found</code> — la commande n'existe pas ou est mal orthographiée. Vérifie l'écriture (le terminal est sensible à la casse et aux espaces).</li>
+        <li><code>No such file or directory</code> — le fichier/dossier n'existe pas <em>là où tu es</em>. Fais <code>pwd</code> et <code>ls</code> pour vérifier que tu es au bon endroit et que le nom est exact.</li>
+        <li><code>Permission denied</code> — tu n'as pas le droit. On verra les permissions plus tard ; pour l'instant, c'est souvent que tu essaies de toucher un fichier système.</li>
+        <li><strong>«&nbsp;il ne se passe rien&nbsp;»</strong> — beaucoup de commandes qui réussissent n'affichent <em>rien</em> (c'est bon signe&nbsp;!). Fais <code>ls</code> pour constater le résultat.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Tu sais ouvrir un terminal, te repérer et manipuler des fichiers — la compétence de base de tout le reste.
+    Prochaine étape&nbsp;: apprendre à <strong>sauvegarder l'histoire de ton travail</strong> avec
+    <strong>Git &amp; le versioning</strong>.
+  </p>
+
+</article>

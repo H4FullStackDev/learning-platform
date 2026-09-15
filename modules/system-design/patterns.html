@@ -1,0 +1,148 @@
+<article class="chapter" data-chapter="patterns">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">09</span>
+      <span class="chapter-kicker">System Design</span>
+      <span class="level-tag level-tag--avance">Avancé</span>
+    </div>
+    <h1 class="chapter-title">Patterns d'architecture</h1>
+    <p class="chapter-lead">Les modèles éprouvés qui structurent les grands systèmes : monolithe vs
+      microservices, CQRS, Event Sourcing, Saga, et les patterns de résilience qui les rendent robustes.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Des solutions à des problèmes récurrents.</strong> On ne réinvente pas l'architecture à chaque
+    projet&nbsp;: la communauté a formalisé des <em>patterns</em>. Les connaître, c'est savoir <strong>nommer</strong>
+    un compromis et choisir la bonne structure selon l'échelle et l'équipe.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Monolithe ou microservices&nbsp;?</h2>
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card">
+          <h4><span class="pill pill--violet">Monolithe modulaire</span></h4>
+          <ul>
+            <li>Un seul déployable, bien découpé en modules.</li>
+            <li><strong>+</strong> Simple à développer, déboguer&nbsp;; pas de latence réseau interne.</li>
+            <li><strong>−</strong> Scaling en bloc&nbsp;; couplage plus facile à laisser filer.</li>
+            <li><strong>Idéal&nbsp;:</strong> démarrage, petite équipe, domaine mouvant.</li>
+          </ul>
+        </div>
+        <div class="spec-card">
+          <h4><span class="pill pill--green">Microservices</span></h4>
+          <ul>
+            <li>Services déployables indépendamment.</li>
+            <li><strong>+</strong> Scaling ciblé, équipes autonomes, isolation des pannes.</li>
+            <li><strong>−</strong> Complexité réseau, données distribuées, observabilité.</li>
+            <li><strong>Idéal&nbsp;:</strong> grande échelle, plusieurs équipes, domaines stables.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Découper par « bounded context »</div>
+      <p>Si on part en microservices, on ne découpe pas au hasard&nbsp;: on suit les <strong>frontières métier</strong>
+      (Domain-Driven Design). Un service = un domaine cohérent, avec <strong>sa propre base</strong> (jamais de base
+      partagée, sinon on recouple tout). Conseil éprouvé&nbsp;: <strong>commencer monolithe</strong>, extraire en
+      services ce qui le justifie.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>CQRS</h2>
+  <p>
+    <strong>CQRS</strong> (Command Query Responsibility Segregation) sépare le modèle d'<strong>écriture</strong>
+    (commandes) du modèle de <strong>lecture</strong> (requêtes). On peut alors les optimiser et les scaler
+    séparément — utile quand lectures et écritures ont des profils très différents.
+  </p>
+  <div class="arch">
+    <div class="arch__node arch__node--ext">Client</div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__branch">
+      <div class="arch__node" style="--c:#f59e0b">Écriture<small>commandes → modèle write</small></div>
+      <div class="arch__node" style="--c:#10b981">Lecture<small>requêtes → modèle read optimisé</small></div>
+    </div>
+  </div>
+  <p class="muted">Le modèle de lecture est alimenté depuis le modèle d'écriture (souvent en asynchrone). Puissant, mais on hérite d'une <strong>cohérence éventuelle</strong> entre les deux — à assumer.</p>
+
+  <!-- ============================================================= -->
+  <h2>Event Sourcing</h2>
+  <p>
+    Plutôt que de stocker l'<em>état courant</em> («&nbsp;solde = 100&nbsp;€&nbsp;»), on stocke la <strong>suite
+    des événements</strong> qui y ont mené («&nbsp;+150, −50&nbsp;»). L'état se recalcule en rejouant le journal.
+    On gagne un <strong>audit complet</strong>, la possibilité de <strong>revenir dans le temps</strong> et de
+    reconstruire de nouvelles vues. Ça se marie naturellement avec CQRS et un log type <strong>Kafka</strong>
+    (chapitre 6) — au prix d'une complexité réelle.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Saga : les transactions distribuées</h2>
+  <p>
+    Une transaction ACID classique ne marche pas <em>entre</em> services (chacun sa base). Le pattern
+    <strong>Saga</strong> décompose une transaction globale en une <strong>suite d'étapes locales</strong>&nbsp;;
+    si une étape échoue, on exécute des <strong>compensations</strong> (annulations) pour revenir en arrière.
+    Exemple d'une commande&nbsp;:
+  </p>
+  <div class="arch">
+    <div class="arch__node" style="--c:#6366f1">Commande<small>créée</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#f59e0b">Paiement<small>débité</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#10b981">Stock<small>réservé</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#eb6834">Expédition</div>
+  </div>
+  <ul>
+    <li><strong>Chorégraphie</strong> — chaque service émet un événement, le suivant réagit. Découplé, mais le flux global est diffus.</li>
+    <li><strong>Orchestration</strong> — un coordinateur central pilote les étapes. Plus clair à suivre, mais c'est un point central.</li>
+    <li><strong>Compensation</strong> — le stock est indisponible&nbsp;? on <em>rembourse</em> le paiement (annulation).</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Les patterns de résilience</h2>
+  <p>Un système distribué <em>va</em> connaître des pannes partielles. Ces patterns évitent qu'une défaillance en entraîne d'autres&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Pattern</th><th>Rôle</th></tr></thead>
+      <tbody>
+        <tr><td>Timeout</td><td>Ne jamais attendre indéfiniment un service lent.</td></tr>
+        <tr><td>Retry + backoff</td><td>Réessayer avec un délai croissant &amp; du <em>jitter</em>, sans marteler.</td></tr>
+        <tr><td>Circuit breaker</td><td>Après trop d'échecs, «&nbsp;couper&nbsp;» vers le service en panne et échouer vite.</td></tr>
+        <tr><td>Bulkhead</td><td>Cloisonner les ressources pour qu'une panne n'en contamine pas d'autres.</td></tr>
+        <tr><td>Graceful degradation</td><td>Répondre en mode dégradé (cache, valeur par défaut) plutôt qu'une erreur.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">On les <em>exploite</em> concrètement côté ops dans le module <a href="app.html?m=devops#scaling" target="_blank" rel="noopener">DevOps → Scalabilité</a>.</p>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo patterns</div>
+      <ul>
+        <li><strong>Commencer simple</strong> — monolithe modulaire d'abord&nbsp;; les patterns avancés résolvent des problèmes que vous n'avez peut-être pas encore.</li>
+        <li><strong>Un service = un domaine = une base</strong> — jamais de base partagée entre services.</li>
+        <li><strong>CQRS/Event Sourcing sont puissants mais coûteux</strong> — les réserver aux cas qui le justifient.</li>
+        <li><strong>Saga pour les transactions inter-services</strong> — penser les compensations dès le début.</li>
+        <li><strong>Résilience par défaut</strong> — timeouts, retries, circuit breakers partout.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    On a la théorie, les composants et les patterns. Il ne reste qu'à <strong>tout mettre en pratique</strong>&nbsp;:
+    place aux <strong>études de cas</strong>.
+  </p>
+
+</article>

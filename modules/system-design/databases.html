@@ -1,0 +1,185 @@
+<article class="chapter" data-chapter="databases">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">04</span>
+      <span class="chapter-kicker">System Design</span>
+      <span class="level-tag level-tag--intermediaire">Intermédiaire</span>
+    </div>
+    <h1 class="chapter-title">Bases de données en profondeur</h1>
+    <p class="chapter-lead">La base est presque toujours le goulot d'étranglement final. Choisir SQL ou
+      NoSQL, indexer, répliquer, partitionner : les décisions qui déterminent si votre système tient à
+      l'échelle.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le nerf de la guerre.</strong> On scale les serveurs d'app facilement (stateless). La base, elle,
+    est <em>stateful</em> — c'est là que tout se complique. Ce chapitre couvre les quatre leviers dans l'ordre
+    où on les tire&nbsp;: bon <strong>choix</strong>, bons <strong>index</strong>, <strong>réplication</strong>,
+    puis <strong>partitionnement</strong> en dernier recours.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>SQL ou NoSQL&nbsp;?</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Critère</th><th>SQL (relationnel)</th><th>NoSQL</th></tr></thead>
+      <tbody>
+        <tr><td>Schéma</td><td>Strict, défini à l'avance</td><td>Souple, évolutif</td></tr>
+        <tr><td>Relations</td><td>Fortes (<code>JOIN</code>)</td><td>Faibles (dénormalisation)</td></tr>
+        <tr><td>Cohérence</td><td>ACID par défaut</td><td>Souvent BASE / éventuelle</td></tr>
+        <tr><td>Mise à l'échelle</td><td>Plutôt verticale (+ réplicas)</td><td>Horizontale native</td></tr>
+        <tr><td>Idéal pour</td><td>Transactions, données relationnelles (paiement, compta)</td><td>Gros volumes, débit élevé, schéma variable</td></tr>
+        <tr><td>Exemples</td><td>PostgreSQL, MySQL</td><td>MongoDB, Redis, Cassandra, Neo4j</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Le NoSQL n'est pas «&nbsp;une&nbsp;» base mais <strong>quatre familles</strong>, chacune pour un usage&nbsp;:</p>
+  <ul>
+    <li><strong>Document</strong> (MongoDB) — objets JSON imbriqués, souple. Catalogues, profils.</li>
+    <li><strong>Clé-valeur</strong> (Redis, DynamoDB) — accès ultra-rapide par clé. Cache, sessions.</li>
+    <li><strong>Colonnes larges</strong> (Cassandra) — écritures massives distribuées. Séries temporelles, logs.</li>
+    <li><strong>Graphe</strong> (Neo4j) — relations complexes. Réseaux sociaux, recommandations.</li>
+  </ul>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">« NoSQL scale, SQL non » est un mythe</div>
+      <p>PostgreSQL tient des charges énormes avec réplicas &amp; partitionnement. Le vrai critère, c'est votre
+      <strong>modèle de données</strong> et vos besoins de <strong>cohérence</strong>. En cas de doute, commencez
+      en <strong>SQL</strong> (plus sûr, plus flexible pour les requêtes)&nbsp;; passez au NoSQL pour un besoin précis.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Indexation</h2>
+  <p>
+    Sans index, retrouver une ligne, c'est parcourir toute la table (<em>full scan</em>). Un <strong>index</strong>
+    est une structure de données (souvent un <strong>B-tree</strong>) qui pointe directement vers les lignes —
+    comme l'index d'un livre. Une recherche passe de O(n) à O(log n).
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">SQL</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-sql">-- Sans index : scan complet de la table
+SELECT * FROM users WHERE email = 'alice@exemple.com';
+
+-- On crée un index sur la colonne interrogée
+CREATE INDEX idx_users_email ON users (email);
+-- -> la même requête devient quasi instantanée</code></pre>
+  </div>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">L'index n'est pas gratuit</div>
+      <p>Chaque index <strong>accélère les lectures</strong> mais <strong>ralentit les écritures</strong> (il faut
+      le mettre à jour) et <strong>consomme du stockage</strong>. On indexe les colonnes des <code>WHERE</code>,
+      <code>JOIN</code> et <code>ORDER BY</code> fréquents — pas tout, à l'aveugle.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>ACID vs BASE</h2>
+  <p>Deux philosophies de cohérence, aux deux bouts du spectre&nbsp;:</p>
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card">
+          <h4><span class="pill pill--violet">ACID</span> (SQL)</h4>
+          <ul>
+            <li><strong>A</strong>tomicité — tout ou rien.</li>
+            <li><strong>C</strong>ohérence — les règles sont toujours respectées.</li>
+            <li><strong>I</strong>solation — les transactions ne se marchent pas dessus.</li>
+            <li><strong>D</strong>urabilité — une fois validé, c'est gravé.</li>
+          </ul>
+        </div>
+        <div class="spec-card">
+          <h4><span class="pill pill--green">BASE</span> (NoSQL distribué)</h4>
+          <ul>
+            <li><strong>B</strong>asically <strong>A</strong>vailable — priorité à la disponibilité.</li>
+            <li><strong>S</strong>oft state — l'état peut changer sans écriture.</li>
+            <li><strong>E</strong>ventual consistency — cohérence <em>à terme</em>.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="muted">Le choix découle du théorème <strong>CAP</strong> (chapitre 8)&nbsp;: dans un système distribué, on ne peut pas tout avoir.</p>
+
+  <!-- ============================================================= -->
+  <h2>Réplication</h2>
+  <p>
+    Répliquer, c'est <strong>copier la base sur plusieurs serveurs</strong>. Deux bénéfices&nbsp;: la
+    <strong>disponibilité</strong> (une copie tombe, une autre prend le relais) et la <strong>scalabilité en
+    lecture</strong> (on répartit les lectures sur les réplicas). Schéma <em>primary / replicas</em>&nbsp;:
+  </p>
+  <div class="arch">
+    <div class="arch__node" style="--c:#6366f1">App</div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__branch">
+      <div class="arch__node" style="--c:#f59e0b">Primary<small>écritures</small></div>
+      <div class="arch__node" style="--c:#10b981">Replicas<small>lectures</small></div>
+    </div>
+  </div>
+  <ul>
+    <li><strong>Écritures → primary</strong>, <strong>lectures → replicas</strong>. Comme la plupart des apps lisent bien plus qu'elles n'écrivent (souvent 80–90&nbsp;% de lectures), on scale énormément ainsi.</li>
+    <li><strong>Réplication asynchrone</strong> — rapide, mais un réplica peut être légèrement en retard (<em>replication lag</em> → lecture d'une donnée périmée).</li>
+    <li><strong>Réplication synchrone</strong> — cohérente, mais plus lente (on attend les réplicas).</li>
+    <li><strong>Failover</strong> — si le primary tombe, un réplica est promu automatiquement.</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Partitionnement &amp; sharding</h2>
+  <p>
+    Quand une seule base ne suffit plus (trop de données, trop d'écritures), on la <strong>découpe</strong>.
+    Le <strong>sharding</strong> répartit les lignes sur plusieurs bases selon une <strong>clé de partition</strong>
+    (ex. l'ID utilisateur). Chaque <em>shard</em> ne gère qu'une portion des données.
+  </p>
+  <div class="arch">
+    <div class="arch__node" style="--c:#6366f1">App</div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>hash(user_id)</div>
+    <div class="arch__branch">
+      <div class="arch__node" style="--c:#f59e0b">Shard A<small>users 0–9M</small></div>
+      <div class="arch__node" style="--c:#38bdf8">Shard B<small>users 9–18M</small></div>
+      <div class="arch__node" style="--c:#10b981">Shard C<small>users 18M+</small></div>
+    </div>
+  </div>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le sharding coûte cher — en dernier recours</div>
+      <p>Il introduit de vrais problèmes&nbsp;: les <code>JOIN</code> entre shards deviennent difficiles, les
+      <strong>hotspots</strong> (une clé mal choisie surcharge un shard), et le <em>rebalancing</em> est pénible.
+      <strong>Ordre des leviers</strong>&nbsp;: optimiser les requêtes &amp; index → cache → read replicas →
+      <em>puis seulement</em> sharding.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo base de données</div>
+      <ul>
+        <li><strong>SQL par défaut</strong> — passez au NoSQL pour un besoin précis, pas par hype.</li>
+        <li><strong>Indexer les bonnes colonnes</strong> — celles des <code>WHERE</code>/<code>JOIN</code>, pas toutes.</li>
+        <li><strong>Read replicas avant sharding</strong> — la plupart des charges sont dominées par les lectures.</li>
+        <li><strong>Choisir la clé de partition avec soin</strong> — c'est irréversible et source de hotspots.</li>
+        <li><strong>Toujours sauvegarder &amp; tester la restauration</strong> — la durabilité ne se présume pas.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    On sait faire tenir la base. Mais la meilleure requête reste celle qu'on n'exécute pas&nbsp;: place au
+    chapitre <strong>Caching</strong>.
+  </p>
+
+</article>

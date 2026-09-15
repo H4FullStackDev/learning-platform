@@ -1,0 +1,309 @@
+<article class="chapter" data-chapter="python">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">03</span>
+      <span class="chapter-kicker">Fondamentaux Tech</span>
+      <span class="level-tag level-tag--debutant">Débutant</span>
+    </div>
+    <h1 class="chapter-title">Premier langage : Python</h1>
+    <p class="chapter-lead">On écrit du vrai code&nbsp;! Python est le langage idéal pour débuter : lisible,
+      proche de l'anglais, et utilisé partout (web, data, IA, automatisation). Beaucoup de pratique ici.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Un langage, c'est quoi&nbsp;?</strong> Une façon d'écrire des <strong>instructions</strong> que
+    l'ordinateur exécute, dans l'ordre, de haut en bas. Python se lit presque comme de l'anglais — c'est pour ça
+    qu'on le choisit pour commencer. Garde ton terminal et un éditeur de texte ouverts, et <strong>tape tout
+    toi-même</strong> : on n'apprend à coder qu'en codant.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Installer &amp; lancer Python</h2>
+  <p>Installe Python depuis <a href="https://python.org" target="_blank" rel="noopener">python.org</a>, puis vérifie&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">python --version     # ou python3 --version selon ton système
+# -> Python 3.12.x</code></pre>
+  </div>
+  <p>Crée un fichier <code>hello.py</code> avec cette ligne, puis lance-le&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">hello.py</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">print("Bonjour le monde !")</code></pre>
+  </div>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">python hello.py
+# -> Bonjour le monde !</code></pre>
+  </div>
+  <p><code>print(...)</code> affiche du texte à l'écran. Félicitations, tu viens d'exécuter ton premier programme&nbsp;! 🎉</p>
+
+  <!-- ============================================================= -->
+  <h2>Variables &amp; types</h2>
+  <p>Une <strong>variable</strong> est une <strong>boîte étiquetée</strong> qui contient une valeur. On la crée avec <code>=</code>&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">python</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">nom = "Alice"        # texte (str)
+age = 30             # entier (int)
+taille = 1.68        # décimal (float)
+majeur = True        # booléen (bool) : True ou False
+
+print(nom, "a", age, "ans")
+# On peut insérer des variables dans du texte avec une f-string :
+print(f"{nom} mesure {taille} m")
+# -> Alice mesure 1.68 m</code></pre>
+  </div>
+  <p>Les 4 types de base&nbsp;: <strong>str</strong> (texte), <strong>int</strong> (nombre entier), <strong>float</strong> (nombre à virgule), <strong>bool</strong> (vrai/faux).</p>
+
+  <!-- ============================================================= -->
+  <h2>Les conditions : if / elif / else</h2>
+  <p>Faire des choix selon une situation. Attention&nbsp;: le bloc conditionnel est <strong>indenté</strong> (décalé de 4 espaces) — en Python, l'indentation <em>fait partie</em> du code&nbsp;!</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">python</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">age = 20
+
+if age &lt; 18:
+    print("Mineur")
+elif age &lt; 65:
+    print("Adulte")
+else:
+    print("Senior")
+# -> Adulte</code></pre>
+  </div>
+  <p>Les comparaisons&nbsp;: <code>==</code> (égal), <code>!=</code> (différent), <code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, <code>&gt;=</code>. On combine avec <code>and</code>, <code>or</code>, <code>not</code>.</p>
+
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Pair ou impair <span class="exercise__tag">Exercice</span>
+    </div>
+    <p>Écris un programme qui dit si un nombre est pair ou impair. Indice : <code>%</code> donne le reste d'une division (<code>10 % 2</code> vaut <code>0</code>).</p>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">python — solution</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">nombre = 7
+if nombre % 2 == 0:
+    print("pair")
+else:
+    print("impair")
+# -> impair</code></pre>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Les boucles : for &amp; while</h2>
+  <p>Répéter des instructions sans se répéter. <code>for</code> parcourt une série&nbsp;; <code>while</code> répète tant qu'une condition est vraie.</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">python</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python"># range(1, 4) produit 1, 2, 3 (la borne de fin est exclue)
+for i in range(1, 4):
+    print(f"Tour numéro {i}")
+# -> Tour numéro 1 / 2 / 3
+
+# while : on répète tant que la condition tient
+compteur = 0
+while compteur &lt; 3:
+    print("ping")
+    compteur = compteur + 1     # ne pas oublier, sinon boucle infinie !</code></pre>
+  </div>
+
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Compter jusqu'à 5 <span class="exercise__tag">Exercice</span>
+    </div>
+    <p>Affiche les nombres de 1 à 5, chacun sur sa ligne.</p>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">python — solution</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">for n in range(1, 6):
+    print(n)
+# -> 1 2 3 4 5 (un par ligne)</code></pre>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Les fonctions</h2>
+  <p>Une <strong>fonction</strong> est un <strong>bloc de code réutilisable</strong> qu'on nomme, pour ne pas se répéter. On la <em>définit</em> avec <code>def</code>, elle peut recevoir des <strong>arguments</strong> et <em>renvoyer</em> un résultat avec <code>return</code>.</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">python</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">def saluer(nom):
+    return f"Bonjour {nom} !"
+
+# on "appelle" la fonction :
+message = saluer("Alice")
+print(message)          # -> Bonjour Alice !
+print(saluer("Bob"))    # -> Bonjour Bob !</code></pre>
+  </div>
+
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Une fonction qui additionne <span class="exercise__tag">Exercice</span>
+    </div>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">python — solution</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">def addition(a, b):
+    return a + b
+
+print(addition(3, 5))    # -> 8</code></pre>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Listes &amp; dictionnaires</h2>
+  <p>Deux façons de stocker <em>plusieurs</em> valeurs&nbsp;:</p>
+  <ul>
+    <li>Une <strong>liste</strong> <code>[ ]</code> — une suite ordonnée (on accède par position, en commençant à <strong>0</strong>).</li>
+    <li>Un <strong>dictionnaire</strong> <code>{ }</code> — des paires <em>clé → valeur</em> (on accède par le nom de la clé).</li>
+  </ul>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">python</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python"># Liste
+fruits = ["pomme", "banane", "kiwi"]
+print(fruits[0])          # -> pomme  (le premier, index 0)
+fruits.append("mangue")   # ajoute à la fin
+print(len(fruits))        # -> 4  (len = longueur)
+
+for fruit in fruits:      # on parcourt la liste
+    print(fruit)
+
+# Dictionnaire
+personne = {"nom": "Alice", "age": 30}
+print(personne["nom"])    # -> Alice
+personne["ville"] = "Paris"   # ajoute une paire</code></pre>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>La Programmation Orientée Objet (POO)</h2>
+  <p>
+    Jusqu'ici, les données (variables) et les actions (fonctions) vivaient séparément. La <strong>POO</strong>
+    permet de les <strong>regrouper</strong> dans un même «&nbsp;objet&nbsp;». L'analogie&nbsp;: une
+    <strong>classe</strong> est un <strong>moule</strong> (le plan), et un <strong>objet</strong> est ce qu'on
+    fabrique avec (un exemplaire). Avec un moule à gâteau (la classe), on fabrique autant de gâteaux qu'on veut
+    (les objets), chacun avec ses propres caractéristiques.
+  </p>
+  <ul>
+    <li>Une <strong>classe</strong> décrit un type de chose&nbsp;: ses <strong>attributs</strong> (ses données) et ses <strong>méthodes</strong> (ce qu'elle sait faire).</li>
+    <li>Un <strong>objet</strong> (ou <em>instance</em>) est un exemplaire concret créé à partir de la classe.</li>
+  </ul>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">python</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">class Chien:
+    # __init__ est le "constructeur" : il s'exécute à la création d'un objet
+    def __init__(self, nom, age):
+        self.nom = nom        # attribut : une donnée propre à CE chien
+        self.age = age
+
+    # une méthode : une action que l'objet sait faire
+    def aboyer(self):
+        return f"{self.nom} dit : Wouf !"
+
+# On crée deux objets (deux instances) à partir du moule Chien
+rex = Chien("Rex", 3)
+bella = Chien("Bella", 5)
+
+print(rex.nom)          # -> Rex                 (on lit un attribut)
+print(rex.aboyer())     # -> Rex dit : Wouf !    (on appelle une méthode)
+print(bella.aboyer())   # -> Bella dit : Wouf !</code></pre>
+  </div>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">À quoi sert <code>self</code>&nbsp;?</div>
+      <p><code>self</code> représente <strong>l'objet lui-même</strong> — c'est ce qui permet à chaque chien de
+      connaître <em>son propre</em> nom. Il est toujours le premier paramètre des méthodes, et Python le passe
+      <strong>automatiquement</strong> quand on écrit <code>rex.aboyer()</code>&nbsp;: tu n'as jamais à le fournir
+      toi-même.</p>
+    </div>
+  </div>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Pourquoi c'est utile</div>
+      <p>La POO aide à <strong>organiser</strong> un programme qui grandit&nbsp;: au lieu d'une soupe de variables,
+      on modélise des «&nbsp;choses&nbsp;» cohérentes (un utilisateur, une commande, un produit) qui portent leurs
+      données <em>et</em> leur comportement. La plupart des bibliothèques Python que tu utiliseras (y compris pour
+      notre mini-API au chapitre 6) sont construites en objets.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Une classe «&nbsp;CompteBancaire&nbsp;» <span class="exercise__tag">Exercice</span>
+    </div>
+    <p>Crée une classe avec un <code>solde</code>, une méthode <code>deposer(montant)</code> et une méthode <code>afficher()</code>.</p>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">python — solution</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">class CompteBancaire:
+    def __init__(self, solde=0):     # solde de départ à 0 par défaut
+        self.solde = solde
+
+    def deposer(self, montant):
+        self.solde = self.solde + montant
+
+    def afficher(self):
+        print(f"Solde : {self.solde} €")
+
+compte = CompteBancaire()
+compte.deposer(100)
+compte.deposer(50)
+compte.afficher()      # -> Solde : 150 €</code></pre>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Gérer les erreurs : try / except</h2>
+  <p>Certaines opérations peuvent échouer (diviser par zéro, un fichier absent…). Plutôt que de faire planter le programme, on <strong>attrape</strong> l'erreur&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">python</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python">try:
+    resultat = 10 / 0
+except ZeroDivisionError:
+    print("Oups, on ne divise pas par zéro !")
+# -> Oups, on ne divise pas par zéro !</code></pre>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Lire &amp; écrire un fichier</h2>
+  <p>Un programme utile sait souvent lire ou sauvegarder des données. Le mot-clé <code>with</code> ouvre le fichier et le referme proprement tout seul&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">python</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-python"># Écrire ("w" = write, écrase le fichier)
+with open("journal.txt", "w") as f:
+    f.write("Ma première ligne\n")
+
+# Lire ("r" = read)
+with open("journal.txt", "r") as f:
+    contenu = f.read()
+print(contenu)     # -> Ma première ligne</code></pre>
+  </div>
+  <p class="muted">Ces bases suffisent déjà à écrire des programmes utiles — et au chapitre 6, on les assemblera pour construire une vraie mini-API. 💪</p>
+
+  <!-- ============================================================= -->
+  <h2>Erreurs fréquentes</h2>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Décoder les messages de Python</div>
+      <ul>
+        <li><code>IndentationError</code> — ton indentation est incohérente. Utilise <strong>toujours 4 espaces</strong> (jamais un mélange espaces/tabulations).</li>
+        <li><code>SyntaxError: expected ':'</code> — tu as oublié le <strong>deux-points</strong> à la fin d'un <code>if</code>, <code>for</code>, <code>def</code>…</li>
+        <li><code>NameError: name 'x' is not defined</code> — tu utilises une variable qui n'existe pas (faute de frappe, ou définie plus bas).</li>
+        <li><code>TypeError</code> — tu mélanges des types incompatibles, ex. <code>"age " + 30</code> (texte + nombre). Convertis&nbsp;: <code>"age " + str(30)</code>.</li>
+        <li><strong>Astuce&nbsp;:</strong> lis le message <em>de bas en haut</em> — la dernière ligne dit le type d'erreur, et le numéro de ligne t'indique où chercher.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Tu sais écrire du code&nbsp;: variables, conditions, boucles, fonctions, <strong>objets (POO)</strong>,
+    fichiers. C'est déjà énorme&nbsp;! Voyons maintenant <em>où</em> tourne ce code quand on fait une
+    application&nbsp;: <strong>comment fonctionne le web</strong>.
+  </p>
+
+</article>

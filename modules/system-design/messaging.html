@@ -1,0 +1,143 @@
+<article class="chapter" data-chapter="messaging">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">06</span>
+      <span class="chapter-kicker">System Design</span>
+      <span class="level-tag level-tag--intermediaire">Intermédiaire</span>
+    </div>
+    <h1 class="chapter-title">Files &amp; traitement asynchrone</h1>
+    <p class="chapter-lead">Découpler la réception du traitement : files de messages, streaming, architecture
+      événementielle. Comment absorber les pics et faire dialoguer les services sans les coupler.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le déclic.</strong> Tout ne doit pas être fait <em>tout de suite</em>. Envoyer un e-mail, générer
+    un PDF, encoder une vidéo&nbsp;: l'utilisateur n'a pas à attendre. On accepte vite la demande, on l'empile,
+    et un <em>worker</em> la traite en arrière-plan. C'est le principe du <strong>traitement asynchrone</strong>.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Synchrone vs asynchrone</h2>
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card">
+          <h4><span class="pill pill--amber">Synchrone</span></h4>
+          <p>L'appelant <strong>attend</strong> la réponse. Simple, direct — mais si le traitement est lent, l'utilisateur
+          patiente, et un pic peut tout saturer.</p>
+        </div>
+        <div class="spec-card">
+          <h4><span class="pill pill--green">Asynchrone</span></h4>
+          <p>L'appelant <strong>dépose une tâche</strong> et repart aussitôt. Le traitement se fait plus tard.
+          Idéal pour le lourd, le différé, et pour <strong>absorber les pics</strong>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>La file de messages</h2>
+  <p>
+    Une <strong>file</strong> (RabbitMQ, SQS) s'intercale entre un <strong>producteur</strong> et des
+    <strong>consommateurs</strong>. Le producteur empile des messages&nbsp;; les workers les dépilent et les
+    traitent à leur rythme. La file joue le rôle d'<strong>amortisseur</strong>&nbsp;:
+  </p>
+  <div class="arch">
+    <div class="arch__node" style="--c:#8b5cf6">API<small>producteur</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#f59e0b">File<small>RabbitMQ</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__branch">
+      <div class="arch__node" style="--c:#10b981">worker</div>
+      <div class="arch__node" style="--c:#10b981">worker</div>
+      <div class="arch__node" style="--c:#10b981">worker</div>
+    </div>
+  </div>
+  <ul>
+    <li><strong>Amortir les pics</strong> — 10&nbsp;000 tâches en 1&nbsp;s&nbsp;? Elles s'empilent et se traitent en quelques minutes, sans rien casser.</li>
+    <li><strong>Découpler</strong> — l'API répond «&nbsp;pris en compte&nbsp;» immédiatement&nbsp;; le worker fait le lourd ensuite.</li>
+    <li><strong>Scaler le traitement</strong> — plus de charge&nbsp;? on ajoute des workers (autoscaling sur la longueur de file, module DevOps).</li>
+    <li><strong>Modèle point-à-point</strong> — chaque message est traité par <em>un seul</em> worker.</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Le streaming (pub/sub)</h2>
+  <p>
+    <strong>Kafka</strong> pousse la logique plus loin&nbsp;: c'est un <strong>journal d'événements</strong>
+    (log) durable et rejouable. Les producteurs publient dans des <em>topics</em>&nbsp;; <strong>plusieurs
+    groupes de consommateurs</strong> lisent le même flux, chacun à son rythme, et peuvent <strong>rejouer</strong>
+    l'historique. Un même événement «&nbsp;commande passée&nbsp;» alimente la facturation, l'analytics et les
+    notifications — indépendamment.
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>&nbsp;</th><th>File (RabbitMQ)</th><th>Stream (Kafka)</th></tr></thead>
+      <tbody>
+        <tr><td>Modèle</td><td>Message consommé puis supprimé</td><td>Log persistant, relisible</td></tr>
+        <tr><td>Consommateurs</td><td>1 message → 1 worker</td><td>Plusieurs groupes lisent le même flux</td></tr>
+        <tr><td>Rejeu</td><td>Non (une fois consommé, parti)</td><td>Oui (on revient en arrière)</td></tr>
+        <tr><td>Idéal pour</td><td>Tâches de fond, jobs</td><td>Événements, analytics, pipelines de données</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Architecture pilotée par les événements</h2>
+  <p>
+    Plutôt que des services qui s'appellent directement, chacun <strong>émet des événements</strong>
+    («&nbsp;utilisateur inscrit&nbsp;», «&nbsp;paiement reçu&nbsp;») et <strong>réagit</strong> à ceux des autres. Les
+    services ne se connaissent plus&nbsp;: ils sont <strong>découplés</strong>, ajoutables et remplaçables sans
+    toucher aux autres. C'est puissant, mais le flux devient plus dur à suivre (d'où l'importance du tracing,
+    module DevOps).
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Garanties de livraison &amp; idempotence</h2>
+  <p>Dans un système distribué, la livraison n'est jamais parfaite. Trois niveaux de garantie&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Garantie</th><th>Sens</th><th>Risque</th></tr></thead>
+      <tbody>
+        <tr><td>At-most-once</td><td>Livré 0 ou 1 fois</td><td>Perte possible</td></tr>
+        <tr><td>At-least-once <span class="muted">(courant)</span></td><td>Livré au moins 1 fois</td><td>Doublons possibles</td></tr>
+        <tr><td>Exactly-once</td><td>Exactement 1 fois</td><td>Coûteux &amp; complexe</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">La parade universelle : l'idempotence</div>
+      <p>Comme la plupart des systèmes garantissent <strong>at-least-once</strong>, un message peut arriver
+      <strong>en double</strong>. La solution&nbsp;: rendre le traitement <strong>idempotent</strong> — le rejouer
+      donne le même résultat. En pratique&nbsp;: une <strong>clé d'idempotence</strong> par message&nbsp;; si on l'a
+      déjà vue, on ignore. On n'a alors plus besoin du coûteux exactly-once.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo asynchrone</div>
+      <ul>
+        <li><strong>Async pour le lourd &amp; le différé</strong> — l'utilisateur ne doit jamais attendre un e-mail ou un encodage.</li>
+        <li><strong>File = amortisseur</strong> — elle protège la base et les services des pics.</li>
+        <li><strong>Traitements idempotents</strong> — parce que les doublons arriveront.</li>
+        <li><strong>Dead-letter queue</strong> — router les messages qui échouent en boucle vers une file dédiée pour analyse.</li>
+        <li><strong>File vs stream</strong> — jobs de fond → file&nbsp;; événements &amp; analytics → stream.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Les services communiquent en asynchrone via des files. Mais pour les échanges directs, comment se
+    parlent-ils exactement&nbsp;? Cap sur <strong>Communication entre services</strong>.
+  </p>
+
+</article>

@@ -1,0 +1,150 @@
+<article class="chapter" data-chapter="case-studies">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">10</span>
+      <span class="chapter-kicker">System Design</span>
+      <span class="level-tag level-tag--avance">Avancé</span>
+    </div>
+    <h1 class="chapter-title">Études de cas</h1>
+    <p class="chapter-lead">On applique tout : la méthode, les briques, les patterns. Trois systèmes
+      emblématiques conçus de bout en bout — raccourcisseur d'URL, rate limiter, fil d'actualité.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>La synthèse.</strong> C'est ici que tout se joue — en entretien comme en projet. On déroule à
+    chaque fois la <strong>méthode du chapitre 1</strong>&nbsp;: <em>clarifier → estimer → concevoir →
+    approfondir</em>. Ce ne sont pas les seules bonnes réponses, mais des raisonnements solides et défendables.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Cas 1 — Raccourcisseur d'URL (type TinyURL)</h2>
+
+  <h3>Clarifier</h3>
+  <ul>
+    <li><strong>Fonctionnel</strong>&nbsp;: transformer une URL longue en une courte&nbsp;; rediriger la courte vers la longue.</li>
+    <li><strong>Non-fonctionnel</strong>&nbsp;: haute disponibilité, redirection à très faible latence, <strong>lectures &gt;&gt; écritures</strong> (~100:1).</li>
+  </ul>
+
+  <h3>Estimer</h3>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">estimation</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">écritures : 100 M nouvelles URLs / mois  ->  ~40 écritures/s
+lectures  : ratio 100:1                  ->  ~4 000 lectures/s   # on dimensionne là-dessus
+stockage  : 100 M/mois x 60 mois x ~500 o ≈ 3 To sur 5 ans      # tient largement</code></pre>
+  </div>
+
+  <h3>Concevoir</h3>
+  <div class="arch">
+    <div class="arch__node arch__node--ext">Client</div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#3b82f6">Load Balancer</div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#38bdf8">Service URL</div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__branch">
+      <div class="arch__node" style="--c:#ef4444">Cache<small>Redis (URLs populaires)</small></div>
+      <div class="arch__node" style="--c:#f59e0b">Base clé-valeur<small>code → URL longue</small></div>
+    </div>
+  </div>
+  <ul>
+    <li><strong>Générer le code court</strong>&nbsp;: encoder un compteur unique en <strong>base62</strong> (a–z, A–Z, 0–9). 7 caractères = 62<sup>7</sup> ≈ <strong>3 500 milliards</strong> de combinaisons — largement assez.</li>
+    <li><strong>Stocker</strong>&nbsp;: une base <strong>clé-valeur</strong> (<code>code → URL longue</code>) — accès en O(1), parfait ici.</li>
+    <li><strong>Rediriger</strong>&nbsp;: <code>GET /abc123</code> → on lit le cache, sinon la base → réponse <strong>301/302</strong> vers l'URL longue.</li>
+    <li><strong>Cacher</strong>&nbsp;: les URLs populaires en Redis&nbsp;; comme les lectures dominent, le cache absorbe l'essentiel de la charge.</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Cas 2 — Rate limiter</h2>
+
+  <h3>Clarifier</h3>
+  <p>Limiter le nombre de requêtes par client (ex. 100 req/min) pour se protéger des abus et du déni de service. Doit être rapide, distribué (plusieurs instances), et renvoyer <strong>429 Too Many Requests</strong> au-delà.</p>
+
+  <h3>Concevoir : l'algorithme du token bucket</h3>
+  <p>
+    Le plus courant&nbsp;: un <strong>seau de jetons</strong> par client se remplit à taux fixe (ex. 100/min).
+    Chaque requête <strong>consomme un jeton</strong>&nbsp;; s'il n'en reste plus, on rejette. Il tolère les
+    petites rafales (le seau a une capacité) tout en bornant le débit moyen.
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Algorithme</th><th>Principe</th><th>Compromis</th></tr></thead>
+      <tbody>
+        <tr><td>Token bucket</td><td>Jetons rechargés à taux fixe</td><td>Tolère les rafales — le plus utilisé</td></tr>
+        <tr><td>Fixed window</td><td>Compteur remis à zéro par fenêtre</td><td>Simple, mais pics en bord de fenêtre</td></tr>
+        <tr><td>Sliding window</td><td>Fenêtre glissante</td><td>Précis, un peu plus coûteux</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Où &amp; comment, en distribué</div>
+      <p><strong>Où</strong>&nbsp;: à l'<strong>API Gateway</strong>, en amont des services (module DevOps).
+      <strong>Comment en distribué</strong>&nbsp;: comme plusieurs instances comptent pour le même client, l'état
+      (les jetons) vit dans un magasin partagé — <strong>Redis</strong> avec des opérations <strong>atomiques</strong>
+      (<code>INCR</code> + TTL). Ainsi toutes les instances partagent le même compteur.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Cas 3 — Fil d'actualité (news feed)</h2>
+
+  <h3>Clarifier</h3>
+  <p>Afficher à un utilisateur les posts récents des personnes qu'il suit. <strong>Lecture massive</strong>, tolérant à une légère fraîcheur (un post vu 2&nbsp;s en retard n'est pas grave → cohérence <em>éventuelle</em>, système AP).</p>
+
+  <h3>Concevoir : le dilemme du fan-out</h3>
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card">
+          <h4><span class="pill pill--green">Fan-out on write</span> (push)</h4>
+          <p>À chaque post, on l'<strong>écrit dans le feed pré-calculé</strong> de chaque follower.
+          <strong>+</strong> Lecture instantanée. <strong>−</strong> Écriture explosive pour les célébrités
+          (millions de followers).</p>
+        </div>
+        <div class="spec-card">
+          <h4><span class="pill pill--amber">Fan-out on read</span> (pull)</h4>
+          <p>On <strong>assemble le feed à la lecture</strong> en agrégeant les posts des suivis.
+          <strong>+</strong> Écriture triviale. <strong>−</strong> Lecture coûteuse à grande échelle.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">La vraie réponse : l'approche hybride</div>
+      <p>Les plateformes (Twitter, Instagram) <strong>combinent les deux</strong>&nbsp;: <strong>push</strong> pour
+      les utilisateurs normaux (feeds pré-calculés, lecture rapide), <strong>pull</strong> pour les comptes à des
+      millions de followers (on évite d'écrire des millions de fois), et on <strong>fusionne</strong> au moment de
+      la lecture. C'est l'illustration parfaite du System Design&nbsp;: <em>pas de réponse unique, mais un compromis
+      justifié par l'échelle</em>.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Le mot de la fin</h2>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Ce qu'il faut retenir de tout le module</div>
+      <p>Le System Design n'est pas une collection de recettes, c'est une <strong>manière de raisonner</strong>&nbsp;:
+      clarifier le besoin, chiffrer l'échelle, choisir des briques, et <strong>assumer chaque compromis</strong>.
+      Il n'y a jamais «&nbsp;la&nbsp;» bonne architecture — seulement celle qui répond le mieux à <em>vos</em>
+      contraintes, et que vous savez justifier.</p>
+    </div>
+  </div>
+
+  <p class="muted" style="text-align:center; margin-top:24px">
+    🎉 Fin du module <strong>System Design</strong>. Vous savez concevoir&nbsp;; le module <strong>DevOps</strong>
+    vous apprend à déployer &amp; exploiter, et le module <strong>SRE</strong> (à venir) à le fiabiliser.
+    Le tableau se complète, formation après formation.
+  </p>
+
+</article>

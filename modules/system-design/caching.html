@@ -1,0 +1,121 @@
+<article class="chapter" data-chapter="caching">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">05</span>
+      <span class="chapter-kicker">System Design</span>
+      <span class="level-tag level-tag--intermediaire">Intermédiaire</span>
+    </div>
+    <h1 class="chapter-title">Caching</h1>
+    <p class="chapter-lead">Le levier de performance le plus rentable : garder à portée de main ce qui coûte
+      cher à recalculer. Les couches, les stratégies — et le vrai problème, l'invalidation.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>L'idée.</strong> Un cache stocke temporairement un résultat coûteux (requête, calcul, page) dans
+    un espace rapide, pour le resservir sans le refaire. C'est souvent le moyen le moins cher de diviser la
+    latence et la charge par 10 — <em>à condition</em> de maîtriser la fraîcheur des données.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Les couches de cache</h2>
+  <p>Le cache est partout sur le trajet d'une requête. Chaque couche absorbe une partie de la charge avant la suivante&nbsp;:</p>
+  <div class="arch">
+    <div class="arch__node arch__node--ext">Navigateur<small>cache client</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#3b82f6">CDN<small>cache edge</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#ef4444">Redis<small>cache applicatif</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#f59e0b">Base<small>+ cache interne</small></div>
+  </div>
+  <ul>
+    <li><strong>Client</strong> — le navigateur cache les assets (en-têtes <code>Cache-Control</code>).</li>
+    <li><strong>CDN</strong> — cache le statique au plus près de l'utilisateur (chapitre 3).</li>
+    <li><strong>Applicatif</strong> — <strong>Redis</strong>/Memcached en mémoire&nbsp;: résultats de requêtes, sessions, compteurs.</li>
+    <li><strong>Base</strong> — la base elle-même cache ses pages fréquentes en RAM.</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Les stratégies de cache</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Stratégie</th><th>Fonctionnement</th><th>Bon pour</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Cache-aside</strong> (lazy)</td><td>L'app lit le cache&nbsp;; en cas de <em>miss</em>, lit la base et remplit le cache</td><td>Le cas général (lecture)</td></tr>
+        <tr><td>Read-through</td><td>Le cache lui-même va chercher en base en cas de miss</td><td>Simplifier le code applicatif</td></tr>
+        <tr><td>Write-through</td><td>Écriture en cache <em>et</em> en base en même temps</td><td>Données lues juste après écriture</td></tr>
+        <tr><td>Write-back</td><td>Écriture en cache d'abord, base plus tard (asynchrone)</td><td>Écritures très intensives (risqué)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>La plus courante, <strong>cache-aside</strong>, en quelques lignes&nbsp;:</p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">cache-aside (Node.js)</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-javascript">async function getProduit(id) {
+  const cle = `produit:${id}`;
+  const cache = await redis.get(cle);
+  if (cache) return JSON.parse(cache);            // HIT : la base n'est pas touchée
+
+  const produit = await db.query('SELECT * FROM produits WHERE id = $1', [id]);
+  await redis.set(cle, JSON.stringify(produit), 'EX', 300);   // MISS : on remplit (TTL 5 min)
+  return produit;
+}</code></pre>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Éviction &amp; expiration</h2>
+  <p>La mémoire est limitée&nbsp;: quand le cache est plein, il faut virer quelque chose. Deux mécanismes complémentaires&nbsp;:</p>
+  <ul>
+    <li><strong>TTL (Time To Live)</strong> — chaque entrée expire au bout d'un délai. Simple et efficace pour borner la péremption.</li>
+    <li><strong>Politique d'éviction</strong> — quand c'est plein&nbsp;: <strong>LRU</strong> (on vire le moins récemment utilisé, le défaut de Redis), LFU (le moins fréquent), FIFO.</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>L'invalidation : le vrai problème</h2>
+  <blockquote class="lead-note" style="border-left:3px solid var(--accent)">
+    «&nbsp;Il n'y a que deux choses difficiles en informatique&nbsp;: l'invalidation de cache et nommer les choses.&nbsp;» — Phil Karlton
+  </blockquote>
+  <p>Un cache sert des données <em>potentiellement périmées</em>. Tout l'art est de décider <strong>quand rafraîchir</strong>&nbsp;:</p>
+  <ul>
+    <li><strong>Expiration (TTL)</strong> — la donnée devient stale après N secondes. Simple, mais fenêtre de péremption.</li>
+    <li><strong>Invalidation à l'écriture</strong> — on supprime/met à jour l'entrée dès que la source change. Précis, mais il faut penser à tous les endroits.</li>
+    <li><strong>Versionnement de clé</strong> — la clé inclut une version (<code>produit:42:v7</code>)&nbsp;; changer la version «&nbsp;invalide&nbsp;» sans supprimer.</li>
+  </ul>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Deux pièges classiques</div>
+      <p><strong>Cache stampede (thundering herd)</strong> — une clé populaire expire, et 10&nbsp;000 requêtes
+      frappent la base en même temps pour la recalculer. Parades&nbsp;: verrou de recalcul, expiration
+      «&nbsp;jitterée&nbsp;», rafraîchissement anticipé.<br>
+      <strong>Cache penetration</strong> — des requêtes pour des clés inexistantes traversent le cache à chaque
+      fois. Parade&nbsp;: cacher aussi les «&nbsp;non trouvé&nbsp;» (avec un TTL court).</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo cache</div>
+      <ul>
+        <li><strong>Cacher ce qui est cher &amp; peu changeant</strong> — profils, catalogues, agrégats, pas les données ultra-volatiles.</li>
+        <li><strong>Toujours un TTL</strong> — jamais de cache éternel&nbsp;; il borne l'incohérence.</li>
+        <li><strong>Choisir sa tolérance à la péremption</strong> — quelques secondes de retard sur un compteur de likes&nbsp;? oui. Sur un solde bancaire&nbsp;? non.</li>
+        <li><strong>Mesurer le taux de hit</strong> — un cache à faible hit-rate coûte sans rien rapporter.</li>
+        <li><strong>Prévoir stampede &amp; penetration</strong> — surtout sur les clés populaires.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Cache posé. Reste à gérer les traitements lourds et les pics&nbsp;: on découple avec des
+    <strong>files &amp; du traitement asynchrone</strong>.
+  </p>
+
+</article>

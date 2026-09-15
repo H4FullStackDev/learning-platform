@@ -1,0 +1,115 @@
+<article class="chapter" data-chapter="alerting">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">05</span>
+      <span class="chapter-kicker">SRE</span>
+      <span class="level-tag level-tag--intermediaire">Intermédiaire</span>
+    </div>
+    <h1 class="chapter-title">Alerting &amp; astreinte (on-call)</h1>
+    <p class="chapter-lead">Une alerte doit réveiller quelqu'un uniquement quand c'est justifié. Concevoir
+      des alertes actionnables, combattre la fatigue, et tenir une astreinte humaine et durable.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le lien entre voir et agir.</strong> Le monitoring montre l'état du système&nbsp;; l'alerting décide
+    <em>quand prévenir un humain</em>. Mal fait, il réveille l'astreinte pour rien et détruit l'équipe. Bien
+    fait, il ne se déclenche que lorsqu'une <strong>action humaine est réellement nécessaire</strong>.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Qu'est-ce qu'une bonne alerte&nbsp;?</h2>
+  <p>Une alerte qui vaut la peine de réveiller quelqu'un respecte trois critères&nbsp;:</p>
+  <ul>
+    <li><strong>Actionnable</strong> — il y a quelque chose à faire. Sinon, ce n'est pas une alerte, c'est du bruit.</li>
+    <li><strong>Urgente</strong> — ça ne peut pas attendre demain matin. Le reste part en ticket, pas en «&nbsp;page&nbsp;».</li>
+    <li><strong>Basée sur un symptôme</strong> — l'utilisateur est impacté (SLO menacé), pas «&nbsp;une machine a un CPU élevé&nbsp;».</li>
+  </ul>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le test&nbsp;: « et si je l'ignore ? »</div>
+      <p>Pour chaque alerte, demandez&nbsp;: «&nbsp;<em>que se passe-t-il si personne ne réagit&nbsp;?</em>&nbsp;». Si la
+      réponse est «&nbsp;rien de grave&nbsp;», elle ne doit pas réveiller l'astreinte. Toute alerte qui se déclenche
+      sans qu'on agisse doit être <strong>corrigée ou supprimée</strong> — pas tolérée.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Alerter sur le budget d'erreur</h2>
+  <p>
+    L'approche moderne n'alerte plus sur des seuils techniques arbitraires, mais sur le <strong>taux de
+    consommation du budget d'erreur</strong> (le <em>burn rate</em>, chapitre 3). On combine plusieurs
+    fenêtres pour distinguer un vrai incident d'un pic passager&nbsp;:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Vitesse de combustion</th><th>Fenêtre</th><th>Canal</th></tr></thead>
+      <tbody>
+        <tr><td>Rapide (× 14 en 1&nbsp;h)</td><td>courte + longue</td><td><strong>Page</strong> (réveil astreinte)</td></tr>
+        <tr><td>Lente (× 3 en 6&nbsp;h)</td><td>moyenne</td><td>Ticket (heures ouvrées)</td></tr>
+        <tr><td>Nominale</td><td>—</td><td>Rien</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Une combustion rapide épuise le budget en heures → il faut agir maintenant. Une combustion lente peut attendre l'équipe en journée. Deux vitesses, deux canaux.</p>
+
+  <!-- ============================================================= -->
+  <h2>La fatigue d'alerte : l'ennemie</h2>
+  <p>
+    Trop d'alertes, et plus personne ne les lit — on finit par ignorer la seule qui comptait. C'est le
+    <strong>risque numéro un</strong> d'une astreinte. On la combat sans relâche&nbsp;:
+  </p>
+  <ul>
+    <li><strong>Grouper &amp; dédupliquer</strong> — 200 pods qui tombent = <em>une</em> alerte, pas 200 (rôle de l'Alertmanager).</li>
+    <li><strong>Supprimer les non-actionnables</strong> — chaque alerte doit mener à un geste.</li>
+    <li><strong>Régler les seuils</strong> — pas d'alerte qui « crie au loup » sur un pic normal.</li>
+    <li><strong>Réviser après chaque astreinte</strong> — toute alerte inutile reçue est un bug à corriger.</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>L'astreinte (on-call), version saine</h2>
+  <p>
+    L'astreinte, c'est la personne joignable pour répondre aux incidents. Bien organisée, c'est soutenable&nbsp;;
+    mal organisée, c'est un burn-out. Le flux typique&nbsp;:
+  </p>
+  <div class="arch">
+    <div class="arch__node" style="--c:#10b981">Alerte SLO<small>burn rate élevé</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#f59e0b">Astreinte 1<small>répond &lt; N min</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>escalade</div>
+    <div class="arch__node" style="--c:#ef4444">Astreinte 2<small>secondaire / lead</small></div>
+  </div>
+  <ul>
+    <li><strong>Rotation équitable</strong> — on tourne (hebdo), avec un primaire et un secondaire (escalade si pas de réponse).</li>
+    <li><strong>Charge soutenable</strong> — une astreinte doit rester rare&nbsp;; un flot d'alertes = un problème d'ingénierie à régler, pas une fatalité.</li>
+    <li><strong>Runbooks</strong> — chaque alerte pointe vers une procédure («&nbsp;que faire&nbsp;») pour agir vite, même à 3&nbsp;h du matin.</li>
+    <li><strong>Reconnaissance</strong> — l'astreinte se compense (temps, prime)&nbsp;: c'est un vrai effort.</li>
+    <li><strong>Passation propre</strong> — un <em>handoff</em> en fin de rotation transmet le contexte des incidents en cours.</li>
+  </ul>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo alerting &amp; astreinte</div>
+      <ul>
+        <li><strong>Une alerte = une action urgente</strong> — sinon c'est un ticket ou du bruit.</li>
+        <li><strong>Alerter sur le burn rate</strong>, multi-fenêtres — page si rapide, ticket si lent.</li>
+        <li><strong>Traquer la fatigue d'alerte</strong> — grouper, dédupliquer, supprimer l'inutile.</li>
+        <li><strong>Chaque alerte a un runbook</strong> — agir vite ne s'improvise pas à 3&nbsp;h.</li>
+        <li><strong>Astreinte soutenable</strong> — rotation équitable, charge basse, compensée.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    L'alerte a réveillé la bonne personne. Que fait-elle ensuite&nbsp;? On entre dans le vif&nbsp;: la
+    <strong>gestion des incidents</strong> (tier Avancé).
+  </p>
+
+</article>

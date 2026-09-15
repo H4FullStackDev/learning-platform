@@ -1,0 +1,177 @@
+<article class="chapter" data-chapter="databases">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">05</span>
+      <span class="chapter-kicker">Fondamentaux Tech</span>
+      <span class="level-tag level-tag--debutant">Débutant</span>
+    </div>
+    <h1 class="chapter-title">Bases de données</h1>
+    <p class="chapter-lead">Une application a besoin de mémoire : ranger des données et les retrouver
+      rapidement. C'est le rôle de la base de données. On apprend le SQL sur SQLite, sans rien installer de
+      lourd.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le besoin.</strong> Au chapitre 3, on a écrit dans un fichier. Ça marche pour du texte simple, mais
+    dès qu'on a beaucoup de données à <em>chercher</em>, <em>trier</em>, <em>relier</em> et partager entre
+    plusieurs programmes, un fichier ne suffit plus. Une <strong>base de données</strong> est faite pour ça.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Pourquoi une base de données&nbsp;?</h2>
+  <p>
+    Vois une base de données comme un <strong>tableur (type Excel) géant et intelligent</strong>, que plusieurs
+    programmes peuvent interroger en même temps. Elle sait retrouver «&nbsp;tous les clients de Paris&nbsp;» parmi
+    des millions de lignes en un clin d'œil, garantir que deux personnes n'écrasent pas la même donnée, et ne
+    jamais rien perdre.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Les tables : lignes &amp; colonnes</h2>
+  <p>
+    Dans une base <strong>relationnelle</strong>, les données vivent dans des <strong>tables</strong> — une table
+    = une <em>feuille de tableur</em>. Chaque <strong>colonne</strong> est un champ (nom, email…), chaque
+    <strong>ligne</strong> est un enregistrement (un utilisateur)&nbsp;:
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>id</th><th>nom</th><th>email</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Alice</td><td>alice@exemple.com</td></tr>
+        <tr><td>2</td><td>Bob</td><td>bob@exemple.com</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Ci-dessus, la table <code>utilisateurs</code> : 3 colonnes, 2 lignes.</p>
+
+  <!-- ============================================================= -->
+  <h2>SQL : parler à la base</h2>
+  <p>
+    On interroge la base avec le <strong>SQL</strong> (<em>Structured Query Language</em>) — un langage proche de
+    l'anglais. Quatre commandes couvrent l'essentiel (le «&nbsp;CRUD&nbsp;»&nbsp;: Create, Read, Update, Delete)&nbsp;:
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">SQL</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-sql">-- Lire (Read)
+SELECT * FROM utilisateurs;                 -- tout
+SELECT nom FROM utilisateurs WHERE id = 1;  -- filtré
+
+-- Créer (Create)
+INSERT INTO utilisateurs (nom, email) VALUES ('Chloé', 'chloe@exemple.com');
+
+-- Modifier (Update)
+UPDATE utilisateurs SET email = 'alice@nouveau.com' WHERE id = 1;
+
+-- Supprimer (Delete)
+DELETE FROM utilisateurs WHERE id = 2;</code></pre>
+  </div>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">N'oublie JAMAIS le <code>WHERE</code></div>
+      <p>Un <code>UPDATE</code> ou <code>DELETE</code> <strong>sans <code>WHERE</code></strong> s'applique à
+      <strong>toutes les lignes</strong> de la table. <code>DELETE FROM utilisateurs;</code> vide la table
+      entière&nbsp;! Prends l'habitude d'écrire le <code>WHERE</code> <em>en premier</em>.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Clés primaires &amp; étrangères</h2>
+  <p>
+    La <strong>clé primaire</strong> (<em>primary key</em>) est l'identifiant <strong>unique</strong> d'une ligne
+    — la colonne <code>id</code>. Comme un numéro de sécurité sociale&nbsp;: deux personnes ne peuvent pas avoir
+    le même.
+  </p>
+  <p>
+    La <strong>clé étrangère</strong> (<em>foreign key</em>) <strong>relie</strong> deux tables. Exemple&nbsp;: une
+    table <code>commandes</code> a une colonne <code>utilisateur_id</code> qui pointe vers l'<code>id</code> de la
+    table <code>utilisateurs</code>. C'est ce qui permet de dire «&nbsp;cette commande appartient à Alice&nbsp;» sans
+    recopier tout son profil.
+  </p>
+  <div class="arch">
+    <div class="arch__node" style="--c:#38bdf8">utilisateurs<small>id (clé primaire)</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>utilisateur_id</div>
+    <div class="arch__node" style="--c:#10b981">commandes<small>clé étrangère → utilisateurs</small></div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Pratiquer avec SQLite</h2>
+  <p>
+    <strong>SQLite</strong> est une base de données rangée dans un <strong>simple fichier</strong>, sans serveur
+    à installer — parfaite pour apprendre (et pour notre projet du chapitre 6&nbsp;!). L'outil <code>sqlite3</code>
+    ouvre un fichier de base et attend tes commandes SQL.
+  </p>
+  <div class="exercise">
+    <div class="exercise__title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Ta première base de données <span class="exercise__tag">Exercice</span>
+    </div>
+    <p>Dans ton terminal, ouvre une base (elle est créée si elle n'existe pas)&nbsp;:</p>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">terminal</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">sqlite3 ma-base.db</code></pre>
+    </div>
+    <p>Le prompt devient <code>sqlite&gt;</code>. Tape maintenant ces commandes SQL (chacune finie par <code>;</code>)&nbsp;:</p>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">SQL</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-sql">CREATE TABLE utilisateurs (id INTEGER PRIMARY KEY, nom TEXT, email TEXT);
+INSERT INTO utilisateurs (nom, email) VALUES ('Alice', 'alice@exemple.com');
+INSERT INTO utilisateurs (nom, email) VALUES ('Bob', 'bob@exemple.com');
+SELECT * FROM utilisateurs;</code></pre>
+    </div>
+    <p><strong>Résultat attendu&nbsp;:</strong></p>
+    <div class="code-block">
+      <div class="code-block__head"><span class="lang">sortie</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">1|Alice|alice@exemple.com
+2|Bob|bob@exemple.com</code></pre>
+    </div>
+    <p>Tape <code>.quit</code> pour sortir. Tu viens de créer une table, d'y insérer des données et de les relire. 🎉 (Si <code>sqlite3</code> n'est pas installé, télécharge-le sur <a href="https://sqlite.org/download.html" target="_blank" rel="noopener">sqlite.org</a>.)</p>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Aperçu : SQL vs NoSQL</h2>
+  <p>Deux grandes familles de bases&nbsp;:</p>
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card">
+          <h4><span class="pill pill--violet">SQL (relationnel)</span></h4>
+          <p>Des tables avec un schéma strict et des relations (clés). Idéal quand la structure des données est
+          claire et stable. Ex.&nbsp;: PostgreSQL, MySQL, SQLite.</p>
+        </div>
+        <div class="spec-card">
+          <h4><span class="pill pill--green">NoSQL</span></h4>
+          <p>Un schéma souple (souvent des documents type JSON), pensé pour de très gros volumes. Ex.&nbsp;:
+          MongoDB, Redis.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="muted">On approfondit énormément ce choix (index, réplication, cohérence…) dans la <a href="app.html?m=system-design#databases" target="_blank" rel="noopener">Formation System Design</a>. Ici, retiens le SQL de base — il te suffira longtemps.</p>
+
+  <!-- ============================================================= -->
+  <h2>Erreurs fréquentes</h2>
+  <div class="callout callout--warn">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Les pièges du SQL</div>
+      <ul>
+        <li><strong>Point-virgule oublié</strong> — chaque requête SQL se termine par <code>;</code>. Sans lui, <code>sqlite3</code> attend la suite (le prompt affiche <code>...&gt;</code>).</li>
+        <li><code>no such table</code> — la table n'existe pas (faute de frappe, ou <code>CREATE TABLE</code> pas encore exécuté).</li>
+        <li><code>UNIQUE constraint failed</code> — tu insères un <code>id</code> déjà pris (la clé primaire doit rester unique).</li>
+        <li><strong>Un <code>UPDATE</code>/<code>DELETE</code> qui touche trop de lignes</strong> — le <code>WHERE</code> manquait (voir l'avertissement plus haut).</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    Tu sais coder (Python), et stocker des données (SQL). Il est temps de <strong>tout assembler</strong>&nbsp;: au
+    prochain chapitre, on construit une vraie <strong>mini-API</strong> — le projet fil rouge qu'on gardera
+    jusqu'au bout.
+  </p>
+
+</article>

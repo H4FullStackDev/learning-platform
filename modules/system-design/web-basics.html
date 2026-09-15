@@ -1,0 +1,177 @@
+<article class="chapter" data-chapter="web-basics">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">02</span>
+      <span class="chapter-kicker">System Design</span>
+      <span class="level-tag level-tag--debutant">Débutant</span>
+    </div>
+    <h1 class="chapter-title">Les briques du web</h1>
+    <p class="chapter-lead">Avant d'assembler un système, il faut connaître ses pièces : client/serveur,
+      DNS, HTTP, API et bases de données. Ce chapitre pose le vocabulaire commun de tout le module.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Pourquoi ce chapitre.</strong> On ne peut pas concevoir avec des briques qu'on ne comprend pas.
+    Ici, on suit le trajet d'une requête — de la barre d'adresse jusqu'à la base de données — et on nomme
+    chaque étape. Rien de neuf si vous développez déjà&nbsp;: on va vite, mais on fixe le socle.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Client &amp; serveur</h2>
+  <p>
+    Le web repose sur un modèle <strong>requête / réponse</strong>. Un <strong>client</strong> (navigateur,
+    app mobile) envoie une requête&nbsp;; un <strong>serveur</strong> la traite et renvoie une réponse. Le
+    client ne sait rien de ce qui se passe derrière — c'est justement ce qui nous laisse libres de concevoir
+    l'arrière-boutique.
+  </p>
+  <div class="arch">
+    <div class="arch__node arch__node--ext">Client<small>navigateur · mobile</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>requête</div>
+    <div class="arch__node" style="--c:#38bdf8">Serveur<small>traite &amp; répond</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>réponse</div>
+    <div class="arch__node arch__node--ext">Client</div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>DNS : du nom à l'adresse</h2>
+  <p>
+    On tape <code>exemple.com</code>, mais les machines communiquent par <strong>adresses IP</strong>. Le
+    <strong>DNS</strong> (Domain Name System) est l'annuaire du web&nbsp;: il traduit un nom de domaine en IP.
+    Un <em>resolver</em> parcourt la hiérarchie DNS, puis <strong>met le résultat en cache</strong> (d'où la
+    rapidité des visites suivantes).
+  </p>
+  <div class="arch">
+    <div class="arch__node arch__node--ext">Navigateur</div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>exemple.com&nbsp;?</div>
+    <div class="arch__node" style="--c:#6366f1">Resolver<small>DNS récursif</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__branch">
+      <div class="arch__node" style="--c:#8b5cf6">Racine → TLD<small>.com</small></div>
+      <div class="arch__node" style="--c:#10b981">Serveur autoritaire<small>→ 93.184.216.34</small></div>
+    </div>
+  </div>
+  <p class="muted">Le resolver interroge la racine, puis le TLD (<code>.com</code>), puis le serveur autoritaire du domaine, obtient l'IP, la renvoie au navigateur et la garde en cache (selon le TTL de l'enregistrement).</p>
+
+  <!-- ============================================================= -->
+  <h2>HTTP : le langage du web</h2>
+  <p>
+    Une fois l'IP connue, le navigateur parle <strong>HTTP</strong> (HTTPS = HTTP + chiffrement TLS). C'est un
+    protocole <strong>sans état</strong> (<em>stateless</em>)&nbsp;: chaque requête est indépendante, le serveur
+    ne « se souvient » de rien entre deux appels. <strong>Cette propriété est fondamentale</strong> — c'est
+    elle qui permettra plus tard de multiplier les serveurs (chapitre suivant).
+  </p>
+
+  <h3>Les méthodes</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Méthode</th><th>Rôle</th><th>Idempotent&nbsp;?</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET</code></td><td>Lire une ressource</td><td>Oui</td></tr>
+        <tr><td><code>POST</code></td><td>Créer une ressource</td><td>Non</td></tr>
+        <tr><td><code>PUT</code></td><td>Remplacer une ressource</td><td>Oui</td></tr>
+        <tr><td><code>PATCH</code></td><td>Modifier partiellement</td><td>Non</td></tr>
+        <tr><td><code>DELETE</code></td><td>Supprimer</td><td>Oui</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted"><strong>Idempotent</strong> = rejouer la requête donne le même résultat. C'est crucial pour les <em>retries</em> en cas de panne réseau (on y reviendra avec la résilience).</p>
+
+  <h3>Les codes de statut</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Famille</th><th>Sens</th><th>Exemples</th></tr></thead>
+      <tbody>
+        <tr><td><code>2xx</code></td><td>Succès</td><td>200 OK · 201 Created</td></tr>
+        <tr><td><code>3xx</code></td><td>Redirection</td><td>301 Moved · 304 Not Modified</td></tr>
+        <tr><td><code>4xx</code></td><td>Erreur du client</td><td>400 · 401 · 404 · 429</td></tr>
+        <tr><td><code>5xx</code></td><td>Erreur du serveur</td><td>500 · 502 · 503</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Les API REST</h2>
+  <p>
+    Une <strong>API</strong> expose les fonctions d'un service. Le style <strong>REST</strong> organise tout
+    autour de <strong>ressources</strong> (des noms&nbsp;: <code>/users</code>, <code>/orders</code>) qu'on
+    manipule avec les méthodes HTTP. C'est lisible, cacheable et sans état&nbsp;:
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">requête &amp; réponse REST</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-http">GET /api/users/42 HTTP/1.1
+Host: api.exemple.com
+Accept: application/json
+Authorization: Bearer &lt;token&gt;
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{ "id": 42, "name": "Alice", "email": "alice@exemple.com" }</code></pre>
+  </div>
+  <p class="muted">Autres styles qu'on comparera au chapitre <em>Communication entre services</em>&nbsp;: <strong>gRPC</strong> (rapide, binaire, entre services) et <strong>GraphQL</strong> (le client choisit les champs).</p>
+
+  <!-- ============================================================= -->
+  <h2>Les bases de données (survol)</h2>
+  <p>
+    Le serveur a besoin de <strong>persister</strong> les données. Deux grandes familles, qu'on approfondira
+    au chapitre suivant du tier intermédiaire&nbsp;:
+  </p>
+  <div class="cq">
+    <div class="@container">
+      <div class="grid gap-4 @min-[560px]:grid-cols-2">
+        <div class="spec-card">
+          <h4><span class="pill pill--violet">SQL (relationnel)</span></h4>
+          <p>Données structurées en tables, schéma strict, requêtes puissantes (<code>JOIN</code>), garanties
+          <strong>ACID</strong>. Ex.&nbsp;: PostgreSQL, MySQL. Idéal quand les relations &amp; la cohérence comptent.</p>
+        </div>
+        <div class="spec-card">
+          <h4><span class="pill pill--green">NoSQL</span></h4>
+          <p>Schéma souple, pensé pour l'<strong>échelle horizontale</strong> (documents, clé-valeur, colonnes,
+          graphes). Ex.&nbsp;: MongoDB, Redis, Cassandra. Idéal pour de gros volumes &amp; un débit élevé.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Le modèle multi-tier</h2>
+  <p>
+    En assemblant ces briques, on obtient l'architecture web classique en <strong>couches</strong> (tiers).
+    Chaque couche a un rôle et peut évoluer indépendamment&nbsp;— c'est le squelette qu'on va faire grandir
+    dans tout le module&nbsp;:
+  </p>
+  <div class="arch">
+    <div class="arch__node arch__node--ext">Client</div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#3b82f6">Load Balancer</div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__node" style="--c:#38bdf8">Serveurs d'app<small>logique métier</small></div>
+    <div class="arch__link"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+    <div class="arch__branch">
+      <div class="arch__node" style="--c:#ef4444">Cache<small>Redis</small></div>
+      <div class="arch__node" style="--c:#f59e0b">Base de données</div>
+    </div>
+  </div>
+
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">À retenir</div>
+      <ul>
+        <li><strong>Le DNS se cache</strong> — d'où l'importance des TTL (et pourquoi un changement d'IP met du temps à se propager).</li>
+        <li><strong>HTTP est sans état</strong> — la clé qui rendra le scaling horizontal possible.</li>
+        <li><strong>REST = ressources + méthodes HTTP</strong> — simple, cacheable, universel.</li>
+        <li><strong>Le multi-tier découple</strong> — chaque couche (LB, app, cache, base) évolue à son rythme.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    On connaît les briques et le squelette. La vraie question du System Design arrive&nbsp;: comment faire
+    tenir ce squelette quand le trafic explose&nbsp;? Direction le chapitre <strong>Scalabilité &amp;
+    performance : les bases</strong>.
+  </p>
+
+</article>

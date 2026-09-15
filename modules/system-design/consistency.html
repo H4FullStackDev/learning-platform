@@ -1,0 +1,132 @@
+<article class="chapter" data-chapter="consistency">
+  <header class="chapter-header">
+    <div class="chapter-eyebrow">
+      <span class="chapter-badge">08</span>
+      <span class="chapter-kicker">System Design</span>
+      <span class="level-tag level-tag--avance">Avancé</span>
+    </div>
+    <h1 class="chapter-title">Cohérence &amp; théorème CAP</h1>
+    <p class="chapter-lead">Le cœur de ce qui rend les systèmes distribués difficiles : quand la donnée est
+      répliquée sur plusieurs machines, on ne peut pas tout garantir. CAP, PACELC et les modèles de
+      cohérence.</p>
+  </header>
+
+  <p class="lead-note">
+    <strong>Le problème fondateur.</strong> Dès qu'une donnée existe en plusieurs copies (réplication,
+    sharding), une question s'impose&nbsp;: si deux clients lisent au même instant, voient-ils la même valeur&nbsp;?
+    Et si le réseau se coupe entre les copies&nbsp;? Le théorème <strong>CAP</strong> formalise ce compromis
+    inévitable.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Le théorème CAP</h2>
+  <p>Dans un système distribué, on ne peut garantir simultanément que <strong>deux</strong> des trois propriétés&nbsp;:</p>
+  <div class="grid-3">
+    <div class="spec-card" style="border-top:3px solid #8b5cf6">
+      <h4>C — Consistency</h4>
+      <p>Toute lecture voit la <strong>dernière écriture</strong>. Tous les nœuds sont d'accord, tout le temps.</p>
+    </div>
+    <div class="spec-card" style="border-top:3px solid #10b981">
+      <h4>A — Availability</h4>
+      <p>Toute requête reçoit une <strong>réponse</strong> (non-erreur), même si certains nœuds sont en difficulté.</p>
+    </div>
+    <div class="spec-card" style="border-top:3px solid #f59e0b">
+      <h4>P — Partition tolerance</h4>
+      <p>Le système continue malgré une <strong>coupure réseau</strong> entre les nœuds.</p>
+    </div>
+  </div>
+  <div class="callout callout--info">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">En réalité : le choix est entre C et A</div>
+      <p>Dans un vrai système distribué, les <strong>partitions réseau arrivent</strong> — <strong>P n'est pas
+      optionnel</strong>. Le vrai choix se fait <em>pendant</em> une partition&nbsp;: soit on refuse de répondre
+      pour rester cohérent (<strong>CP</strong>), soit on répond avec une donnée peut-être périmée pour rester
+      disponible (<strong>AP</strong>). On ne « choisit pas 2 sur 3 » : on choisit <strong>CP ou AP</strong>.</p>
+    </div>
+  </div>
+
+  <h3>Systèmes CP vs AP</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>&nbsp;</th><th>CP (cohérence &gt; dispo)</th><th>AP (dispo &gt; cohérence)</th></tr></thead>
+      <tbody>
+        <tr><td>Pendant une partition</td><td>Refuse/bloque pour rester cohérent</td><td>Répond, quitte à servir du périmé</td></tr>
+        <tr><td>Exemples</td><td>MongoDB, HBase, ZooKeeper, etcd</td><td>Cassandra, DynamoDB, Riak</td></tr>
+        <tr><td>Bon pour</td><td>Paiement, stock, réservation</td><td>Fil d'actualité, likes, panier</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>PACELC : au-delà de CAP</h2>
+  <p>
+    CAP ne parle que du cas <em>partition</em>. <strong>PACELC</strong> le complète&nbsp;: <strong>si Partition
+    (P)</strong>, arbitrer entre <strong>A</strong> et <strong>C</strong>&nbsp;; <strong>sinon (Else, E)</strong>,
+    en fonctionnement normal, arbitrer entre <strong>Latence (L)</strong> et <strong>Cohérence (C)</strong>.
+    Autrement dit&nbsp;: même sans panne, plus de cohérence coûte plus de latence (il faut synchroniser les
+    réplicas). C'est le compromis <em>de tous les jours</em>.
+  </p>
+
+  <!-- ============================================================= -->
+  <h2>Les modèles de cohérence</h2>
+  <p>«&nbsp;Cohérent&nbsp;» n'est pas binaire&nbsp;: c'est un spectre, du plus strict (et coûteux) au plus souple (et rapide)&nbsp;:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Modèle</th><th>Garantie</th><th>Exemple</th></tr></thead>
+      <tbody>
+        <tr><td>Forte (strong)</td><td>Toute lecture voit la dernière écriture, partout</td><td>Solde bancaire</td></tr>
+        <tr><td>Read-your-writes</td><td>On voit au moins <em>ses propres</em> écritures</td><td>Voir son propre commentaire posté</td></tr>
+        <tr><td>Causale</td><td>Les événements liés arrivent dans l'ordre</td><td>Réponse après la question dans un thread</td></tr>
+        <tr><td>Éventuelle (eventual)</td><td>Les réplicas convergent… à terme</td><td>Compteur de vues, DNS</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">La cohérence <strong>éventuelle</strong> est le prix de la haute disponibilité et de la faible latence. On l'accepte quand un léger décalage est sans conséquence (un like affiché 2&nbsp;s en retard).</p>
+
+  <!-- ============================================================= -->
+  <h2>Consensus &amp; quorums</h2>
+  <p>
+    Comment plusieurs nœuds se mettent-ils d'accord sur une valeur malgré des pannes&nbsp;? Via un algorithme
+    de <strong>consensus</strong> — <strong>Raft</strong> (le plus lisible) ou Paxos — utilisé par etcd,
+    ZooKeeper, Consul pour élire un leader et répliquer un journal de façon sûre.
+  </p>
+  <p>
+    En pratique, on règle la cohérence avec des <strong>quorums</strong>. Avec <strong>N</strong> réplicas, on
+    exige <strong>W</strong> confirmations en écriture et <strong>R</strong> en lecture. Si
+    <strong>W + R &gt; N</strong>, toute lecture croise au moins une écriture à jour → cohérence forte&nbsp;;
+    des valeurs plus faibles privilégient la vitesse. C'est un <strong>curseur</strong> réglable&nbsp;:
+  </p>
+  <div class="code-block">
+    <div class="code-block__head"><span class="lang">quorum (N = 3 réplicas)</span><button class="copy-btn" type="button">Copier</button></div>
+<pre><code class="language-bash">W = 2, R = 2   ->  W + R = 4 > 3   # cohérent (on croise toujours une copie à jour)
+W = 1, R = 1   ->  W + R = 2 < 3   # rapide mais éventuellement périmé
+W = 3, R = 1   ->  écritures lentes, lectures ultra-rapides &amp; sûres</code></pre>
+  </div>
+
+  <!-- ============================================================= -->
+  <h2>Bonnes pratiques</h2>
+  <div class="callout callout--tip">
+    <div class="callout__icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="callout__body">
+      <div class="callout__title">Le mémo cohérence</div>
+      <ul>
+        <li><strong>P n'est pas un choix</strong> — dans le distribué, arbitrez entre <em>CP</em> et <em>AP</em>.</li>
+        <li><strong>Par cas d'usage</strong> — paiement/stock → cohérence forte&nbsp;; likes/feed → éventuelle.</li>
+        <li><strong>La cohérence coûte de la latence</strong> (PACELC), même sans panne.</li>
+        <li><strong>Régler le curseur avec les quorums</strong> — <code>W + R &gt; N</code> pour la cohérence forte.</li>
+        <li><strong>Ne pas réinventer le consensus</strong> — s'appuyer sur etcd/ZooKeeper/Consul.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted">
+    On sait raisonner sur la cohérence. Voyons maintenant les <strong>patterns</strong> qui structurent les
+    grands systèmes distribués.
+  </p>
+
+</article>
